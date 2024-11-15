@@ -154,6 +154,15 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Ignore everything in the datasets directory
+datasets/**
+
+# Allow .zip files in the datasets directory and subdirectories
+!datasets/**/*.zip
+
+# Allow traversal of directories in datasets to find .zip files
+!datasets/**/
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
