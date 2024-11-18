@@ -7,6 +7,7 @@ from environment.board_state import Node, Edge, HexTile, HexDirection, Port, Por
 from environment.player_state import PlayerState
 from environment.action import Action, ActionType
 from environment.common import PlayerID, HexTile, ResourceType, BuildingType
+from environment.game import CatanGame
 
 # DEBUG FLAGS
 VERBOSE_LOGGING = 1
@@ -85,7 +86,7 @@ class CatanatronParser:
             node_to_hex_mapping=node_to_hex_mapping,
             edge_to_hex_mapping=edge_to_hex_mapping,
             port_to_edge_mapping=port_to_edge_mapping,
-            coordinate_to_hex_mapping={hex_tile.coordinate for hex_tile in hex_tiles},
+            coordinate_to_hex_mapping={hex_tile.coordinate: hex_tile for hex_tile in hex_tiles},
             id_to_hex_mapping={hex_tile.hex_id: hex_tile for hex_tile in hex_tiles},
             id_to_node_mapping={node.node_id: node for node in nodes},
             id_to_edge_mapping={edge.edge_id: edge for edge in edges},
@@ -93,51 +94,105 @@ class CatanatronParser:
         )
 
     @staticmethod
-    def parse_data_json(data_path) -> List[Tuple[List[PlayerState], DynamicBoardState]]:
+    def parse_data_json(data_path, static_board_state: StaticBoardState) -> CatanGame:
         with open(data_path, 'r') as f:
             json_data = json.load(f)
 
-        parsed_data = []
-
-        for game_data in json_data:
-            game_state = game_data.get('state')
-            action_take = game_data.get('action')
+        winner = json_data.get('winner')
+        winner_id = PlayerID.string_to_enum(winner)
+        if(VERBOSE_LOGGING): print(f"Game winner: {winner}:{winner_id}")
+        
+        game = json_data.get('game')
+        game_steps = []
+        for step in game:
+            game_state = step.get('state')
             
-            # Parse player states
-            player_states = [
-                PlayerState(
-                    **player_data  # Assuming the JSON structure matches PlayerState fields
+            # Get current player
+            current_player = game_state.get('current_player')
+            current_player_id = PlayerID.string_to_enum(current_player)
+            if VERBOSE_LOGGING: print(f"Current player: {current_player}:{current_player_id}")
+
+                        # Get action that was taken by player
+            action_taken = step.get('action')
+            action_taken_by_player = (
+                Action(
+                    player_id=PlayerID.string_to_enum(action_taken[0]),
+                    action=ActionType.string_to_enum(action_taken[1]),
+                    parameters=action_taken[2] if action_taken[2] is not None else []
                 )
-                for player_data in game_state['players']
+                if action_taken
+                else Action(
+                    player_id=current_player_id,
+                    action=ActionType.END_TURN,
+                    parameters=[]
+                )
+            )
+
+            # Parse player states
+            player_states = game_state['player_states']
+            player_states_list = [
+                PlayerState(
+                    PLAYER_ID=PlayerID.string_to_enum(player_color),
+                    HAS_ROLLED=player_states.get(f'P{player_id}_HAS_ROLLED'),
+                    HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN=player_states.get(f'P{player_id}_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN'),
+                    VISIBLE_VICTORY_POINTS=player_states.get(f'P{player_id}_VICTORY_POINTS'),
+                    ACTUAL_VICTORY_POINTS=player_states.get(f'P{player_id}_ACTUAL_VICTORY_POINTS'),
+                    HAS_LONGEST_ROAD=player_states.get(f'P{player_id}_HAS_ROAD'),
+                    HAS_LARGEST_ARMY=player_states.get(f'P{player_id}_HAS_ARMY'),
+                    ROADS_AVAILABLE=player_states.get(f'P{player_id}_ROADS_AVAILABLE'),
+                    SETTLEMENTS_AVAILABLE=player_states.get(f'P{player_id}_SETTLEMENTS_AVAILABLE'),
+                    CITIES_AVAILABLE=player_states.get(f'P{player_id}_CITIES_AVAILABLE'),
+                    LONGEST_ROAD_LENGTH=player_states.get(f'P{player_id}_LONGEST_ROAD_LENGTH'),
+                    WOOD_IN_HAND=player_states.get(f'P{player_id}_WOOD_IN_HAND'),
+                    BRICK_IN_HAND=player_states.get(f'P{player_id}_BRICK_IN_HAND'),
+                    SHEEP_IN_HAND=player_states.get(f'P{player_id}_SHEEP_IN_HAND'),
+                    WHEAT_IN_HAND=player_states.get(f'P{player_id}_WHEAT_IN_HAND'),
+                    ORE_IN_HAND=player_states.get(f'P{player_id}_ORE_IN_HAND'),
+                    KNIGHTS_IN_HAND=player_states.get(f'P{player_id}_KNIGHT_IN_HAND'),
+                    NUMBER_PLAYED_KNIGHT=player_states.get(f'P{player_id}_PLAYED_KNIGHT'),
+                    YEAR_OF_PLENTY_IN_HAND=player_states.get(f'P{player_id}_YEAR_OF_PLENTY_IN_HAND'),
+                    NUMBER_PLAYED_YEAR_OF_PLENTY=player_states.get(f'P{player_id}_PLAYED_YEAR_OF_PLENTY'),
+                    MONOPOLY_IN_HAND=player_states.get(f'P{player_id}_MONOPOLY_IN_HAND'),
+                    NUMBER_PLAYED_MONOPOLY=player_states.get(f'P{player_id}_PLAYED_MONOPOLY'),
+                    ROAD_BUILDING_IN_HAND=player_states.get(f'P{player_id}_ROAD_BUILDING_IN_HAND'),
+                    NUMBER_PLAYED_ROAD_BUILDING=player_states.get(f'P{player_id}_PLAYED_ROAD_BUILDING'),
+                    VICTORY_POINT_IN_HAND=player_states.get(f'P{player_id}_VICTORY_POINT_IN_HAND'),
+                    NUMBER_PLAYED_VICTORY_POINT=player_states.get(f'P{player_id}_PLAYED_VICTORY_POINT')
+                )
+                for player_id, player_color in enumerate(game_state['players'])
             ]
 
             # Parse dynamic board state
-            dynamic_state = game_state['dynamic_board_state']
+            board_state = game_state['board']
             buildings = [
-                (Node(node_id=building['node']), PlayerID.string_to_enum(building['player']), BuildingType[building['type'].upper()])
-                for building in dynamic_state['buildings']
+                (building['node_id'], PlayerID.string_to_enum(building['color']), BuildingType.string_to_enum(building['type']))
+                for building in board_state['buildings']
             ]
+            
             roads = [
-                (Edge(edge_id=tuple(road['edge'])), PlayerID.string_to_enum(road['player']))
-                for road in dynamic_state['roads']
+                (tuple(road['edge_id']), PlayerID.string_to_enum(road['color']))
+                for road in board_state['roads']
             ]
-            robber_location = HexTile(
-                hex_id=dynamic_state['robber']['hex_id'],
-                resource=None,
-                token=None
-            )
+            
+            robber_location = static_board_state.coordinate_to_hex_mapping[tuple(board_state['robber_coordinate'])].hex_id
+            if VERBOSE_LOGGING: print(f"Robber location (Hex ID:Coordinate): {robber_location}:{board_state['robber_coordinate']}")
             available_actions = [
-                Action(action=ActionType.string_to_enum(action['action']), parameters=action.get('parameters'))
-                for action in dynamic_state['available_actions']
+                Action(player_id=PlayerID.string_to_enum(action[0]),
+                       action=ActionType.string_to_enum(action[1]),
+                       parameters=action[2] if action[2] is not None else list())
+                for action in game_state['playable_actions']
             ]
+
             dynamic_board_state = DynamicBoardState(
-                current_player=PlayerID.string_to_enum(dynamic_state['current_player']),
+                current_player=current_player_id,
                 buildings=buildings,
                 roads=roads,
                 robber_location=robber_location,
                 available_actions=available_actions
             )
+            game_steps.append((player_states_list, dynamic_board_state, action_taken_by_player))
 
-            parsed_data.append((player_states, dynamic_board_state))
-
-        return parsed_data
+        return CatanGame(
+            winner=winner_id,
+            game_steps=game_steps
+        )

@@ -5,8 +5,8 @@ import argparse
 from typing import Iterator, Tuple, List
 
 from interfaces.catanatron_interface import CatanatronParser
-from environment.board_state import StaticBoardState, DynamicBoardState
-from environment.player_state import PlayerState
+from environment.board_state import StaticBoardState
+from environment.game import CatanGame
 
 def process_directory_iterator(base_dir: str) -> Iterator[Tuple[str, str]]:
     for root, dirs, _ in os.walk(base_dir):
@@ -18,11 +18,11 @@ def process_directory_iterator(base_dir: str) -> Iterator[Tuple[str, str]]:
             if os.path.exists(board_file) and os.path.exists(data_file):
                 yield board_file, data_file
 
-def parse_data(board_path, data_path) -> Tuple[StaticBoardState, DynamicBoardState, List[PlayerState]]:
+def parse_data(board_path, data_path) -> Tuple[StaticBoardState, CatanGame]:
     parser = CatanatronParser()
     static_board_state = parser.parse_board_json(board_path)
-    player_states, dynamic_board_state = parser.parse_data_json(data_path)
-    return [static_board_state, dynamic_board_state, player_states]
+    game = parser.parse_data_json(data_path, static_board_state)
+    return [static_board_state, game]
 
 def main():
 
@@ -34,7 +34,7 @@ def main():
     if os.path.isdir(args.dataset_dir):
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
             print(f"Processing: {board_path}, {data_path}")
-            static_board_state, dynamic_board_state, player_states = parse_data(board_path, data_path)
+            static_board_state, game = parse_data(board_path, data_path)
             print(static_board_state)
             return
     else:

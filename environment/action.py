@@ -2,6 +2,8 @@ from enum import IntEnum, auto
 from dataclasses import dataclass
 from typing import Optional, List
 
+from .common import PlayerID
+
 class ActionType(IntEnum):
     # Discrete Actions
     ROLL = auto()  # value is None
@@ -22,21 +24,20 @@ class ActionType(IntEnum):
     PLAY_MONOPOLY = auto()  # value is Resource
     PLAY_ROAD_BUILDING = auto()  # value is None
 
-    '''
     # Trading out of scope for now
+
     # MARITIME_TRADE value is 5-resouce tuple, where last resource is resource asked.
     #   resources in index 2 and 3 might be None, denoting a port-trade.
-    MARITIME_TRADE = "MARITIME_TRADE"
+    MARITIME_TRADE = auto()
     # Domestic Trade (player to player trade)
     # Values for all three is a 10-resource tuple, first 5 is offered freqdeck, last 5 is
     #   receiving freqdeck.
-    OFFER_TRADE = "OFFER_TRADE"
-    ACCEPT_TRADE = "ACCEPT_TRADE"
-    REJECT_TRADE = "REJECT_TRADE"
+    OFFER_TRADE = auto()
+    ACCEPT_TRADE = auto()
+    REJECT_TRADE = auto()
     # CONFIRM_TRADE value is 11-tuple. first 10 as in OFFER_TRADE, last is color of accepting player
-    CONFIRM_TRADE = "CONFIRM_TRADE"
-    CANCEL_TRADE = "CANCEL_TRADE"  # value is None
-    '''
+    CONFIRM_TRADE = auto()
+    CANCEL_TRADE = auto()  # value is None
 
     @staticmethod
     def string_to_enum(s : str):
@@ -44,6 +45,7 @@ class ActionType(IntEnum):
     
 @dataclass
 class Action:
+    player_id: PlayerID
     action: ActionType
     parameters: Optional[List[int]] = None
 
