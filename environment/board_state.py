@@ -2,15 +2,17 @@ from enum import IntEnum, auto
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
 
-from common import HexTile, PlayerID, BuildingType
-from action import Action
+from .common import HexTile, PlayerID, BuildingType
+from .action import Action
 
 class HexDirection(IntEnum):
     NORTH = auto()
     NORTHEAST = auto()
+    EAST = auto()
     SOUTHEAST = auto()
     SOUTH = auto()
     SOUTHWEST = auto()
+    WEST = auto()
     NORTHWEST = auto()
     
     @staticmethod
@@ -18,12 +20,12 @@ class HexDirection(IntEnum):
         return HexDirection[s.upper()]
 
 class PortType(IntEnum):
-    GENERIC_3_1 = auto() # 3:1
-    WOOD_2_1 = auto() # 2:1 Wood
-    BRICK_2_1 = auto() # 2:1 Brick
-    SHEEP_2_1 = auto() # 2:1 Sheep
-    WHEAT_2_1 = auto() # 2:1 Wheat
-    ORE_2_1 = auto() # 2:1 Ore
+    GENERIC = auto() # 3:1
+    WOOD = auto() # 2:1 Wood
+    BRICK = auto() # 2:1 Brick
+    SHEEP = auto() # 2:1 Sheep
+    WHEAT = auto() # 2:1 Wheat
+    ORE = auto() # 2:1 Ore
 
 @dataclass
 class Node:

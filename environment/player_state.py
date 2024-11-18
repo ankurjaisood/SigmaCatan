@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from common import PlayerID
+from .common import PlayerID
 
 '''
 Custom definition of a players state in Cata
