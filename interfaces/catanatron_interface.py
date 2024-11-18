@@ -7,7 +7,7 @@ from environment.board_state import Node, Edge, HexTile, HexDirection, Port, Por
 from environment.player_state import PlayerState
 from environment.action import Action, ActionType
 from environment.common import PlayerID, HexTile, ResourceType, BuildingType
-from environment.game import CatanGame
+from environment.game import CatanGame, GameStep
 
 # DEBUG FLAGS
 VERBOSE_LOGGING = 1
@@ -31,11 +31,11 @@ class CatanatronParser:
         # Parse hex tiles
         for tile_data in json_data['tiles']:
             tile = tile_data['tile']
+            tile_type = tile['type']
             if "tile_id" in tile:
-                tile = tile
                 hex_id = tile.get("tile_id")
-                resource = ResourceType.string_to_enum(tile['resource']) if tile['type'] == 'RESOURCE_TILE' else ResourceType.DESERT
-                number = tile.get("number")
+                resource = ResourceType.string_to_enum(tile['resource']) if tile_type == 'RESOURCE_TILE' else ResourceType.DESERT
+                number = tile.get("number") if tile_type == 'RESOURCE_TILE' else 0
                 coordinate = tile_data['coordinate']
 
                 hex_tiles.append(HexTile(hex_id=hex_id, resource=resource, token=number, coordinate=tuple(coordinate)))
@@ -118,7 +118,7 @@ class CatanatronParser:
                 Action(
                     player_id=PlayerID.string_to_enum(action_taken[0]),
                     action=ActionType.string_to_enum(action_taken[1]),
-                    parameters=action_taken[2] if action_taken[2] is not None else []
+                    parameters = list(action_taken[2]) if action_taken and isinstance(action_taken[2], (list, tuple)) else ([action_taken[2]] if action_taken and action_taken[2] is not None else [])
                 )
                 if action_taken
                 else Action(
@@ -179,7 +179,8 @@ class CatanatronParser:
             available_actions = [
                 Action(player_id=PlayerID.string_to_enum(action[0]),
                        action=ActionType.string_to_enum(action[1]),
-                       parameters=action[2] if action[2] is not None else list())
+                       parameters = list(action_taken[2]) if action_taken and isinstance(action_taken[2], (list, tuple)) else ([action_taken[2]] if action_taken and action_taken[2] is not None else [])
+                       )
                 for action in game_state['playable_actions']
             ]
 
@@ -190,7 +191,7 @@ class CatanatronParser:
                 robber_location=robber_location,
                 available_actions=available_actions
             )
-            game_steps.append((player_states_list, dynamic_board_state, action_taken_by_player))
+            game_steps.append(GameStep(step=(player_states_list, dynamic_board_state, action_taken_by_player)))
 
         return CatanGame(
             winner=winner_id,

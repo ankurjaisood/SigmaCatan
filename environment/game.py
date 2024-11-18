@@ -7,6 +7,10 @@ from .board_state import DynamicBoardState
 from .action import Action
 
 @dataclass
+class GameStep:
+    step: Tuple[List[PlayerState], DynamicBoardState, Action]
+
+@dataclass
 class CatanGame:
     winner: PlayerID
-    game_steps: List[Tuple[List[PlayerState], DynamicBoardState, Action]]
+    game_steps: List[GameStep]

@@ -1,6 +1,6 @@
 from enum import IntEnum, auto
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List
 
 from .common import PlayerID
 
@@ -47,7 +47,7 @@ class ActionType(IntEnum):
 class Action:
     player_id: PlayerID
     action: ActionType
-    parameters: Optional[List[int]] = None
+    parameters: List[int]
 
     # Static variable to define the maximum number of parameters for any action
     MAX_ACTION_PARAMETER_LENGTH = 11

@@ -68,31 +68,30 @@ class StaticBoardState:
         # Flatten hex_tiles
         for hex_tile in self.hex_tiles:
             flattened.extend([
-                hex_tile.resource.value,  # Convert resource enum to int
-                hex_tile.token  # Number token
+                hex_tile.resource.value,
+                hex_tile.token
             ])
 
         # Flatten nodes
         for node in self.nodes:
             flattened.extend([
                 node.node_id,
-                node.direction
+                node.direction.value
             ])
 
         # Flatten edges
         for edge in self.edges:
-            flattened.extend([
-                edge.edge_id,
-                edge.direction
-            ])
+            flattened.extend(edge.edge_id)
+            flattened.append(edge.direction.value)
 
         # Flatten ports
         for port in self.ports:
             flattened.extend([
                 port.port_id,
-                port.port_type,
-                *port.nodes  # Add the two nodes associated with the port
+                port.port_type.value,
             ])
+            for n in port.nodes:
+                flattened.extend([n.node_id, n.direction.value])
 
         # Flatten node_to_hex_mapping
         for node_id, hex_ids in self.node_to_hex_mapping.items():
@@ -105,9 +104,10 @@ class StaticBoardState:
             flattened.extend(hex_ids)
 
         # Flatten port_to_edge_mapping
-        for port_id, (node_a, node_b) in self.port_to_edge_mapping.items():
+        for port_id, edges in self.port_to_edge_mapping.items():
             flattened.append(port_id)
-            flattened.extend([node_a, node_b])
+            for edge_1, edge_2 in edges:
+                flattened.extend([edge_1, edge_2])
 
         return flattened
 
@@ -127,7 +127,7 @@ class DynamicBoardState:
         flattened = []
 
         # Flatten current player
-        flattened.append(self.current_player)
+        flattened.append(self.current_player.value)
 
         # Flatten buildings
         for building in self.buildings:

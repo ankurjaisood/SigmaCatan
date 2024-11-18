@@ -6,7 +6,7 @@ from typing import Iterator, Tuple, List
 
 from interfaces.catanatron_interface import CatanatronParser
 from environment.board_state import StaticBoardState
-from environment.game import CatanGame
+from environment.game import CatanGame, GameStep
 
 def process_directory_iterator(base_dir: str) -> Iterator[Tuple[str, str]]:
     for root, dirs, _ in os.walk(base_dir):
@@ -24,6 +24,19 @@ def parse_data(board_path, data_path) -> Tuple[StaticBoardState, CatanGame]:
     game = parser.parse_data_json(data_path, static_board_state)
     return [static_board_state, game]
 
+def create_input_tensor(board_state: StaticBoardState, step: GameStep):
+    input_tensor = []
+    player_states, dynamic_board_state, action_taken = step.step
+        
+    input_tensor.extend(board_state.flatten())
+
+    for player_state in player_states:
+        input_tensor.extend(player_state.flatten())
+    
+    input_tensor.extend(dynamic_board_state.flatten())
+    input_tensor.extend(action_taken.flatten())
+    return input_tensor
+
 def main():
 
     parser = argparse.ArgumentParser(description="Parse Catan board.json and data.json files in subdirectories within a dataset.")
@@ -35,8 +48,11 @@ def main():
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
             print(f"Processing: {board_path}, {data_path}")
             static_board_state, game = parse_data(board_path, data_path)
-            print(static_board_state)
-            return
+
+            for step in game.game_steps:
+                input_tensor = create_input_tensor(static_board_state, step)
+                print(f"Input Tensor Size: {len(input_tensor)}")
+                return
     else:
         print(f"The specified path {args.dataset_dir} is not a directory.")
 
