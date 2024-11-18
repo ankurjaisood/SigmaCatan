@@ -57,3 +57,15 @@ class Road:
 
     def flatten(self):
         return [self.edge_id[0], self.edge_id[1], self.player_owner.value]
+    
+    def __hash__(self):
+        return hash((self.edge_id, self.player_owner))
+
+    def __eq__(self, other):
+        if not isinstance(other, Road):
+            return False
+        return (
+            self.edge_id == other.edge_id and
+            self.player_owner == other.player_owner
+        )
+

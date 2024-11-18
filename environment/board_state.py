@@ -116,12 +116,12 @@ class DynamicBoardState:
     current_player: PlayerID
     buildings: List[Building]
     roads: List[Road]
-    robber_location: HexTile
+    robber_location: int
     available_actions: List[Action]
 
     MAX_NUM_PLACED_BUILDINGS = 80 # 4 players * 5 settlements * 4 cities
     MAX_NUM_PLACED_ROADS = 60 # 4 players * 15 roads
-    MAX_NUM_AVAILABLE_ACTIONS = 128
+    MAX_NUM_AVAILABLE_ACTIONS = 64
 
     def flatten(self) -> List[int]:
         flattened = []
@@ -130,12 +130,14 @@ class DynamicBoardState:
         flattened.append(self.current_player.value)
 
         # Flatten buildings
+        assert len(self.buildings) <= self.MAX_NUM_PLACED_BUILDINGS, "Number of buildings greater than supported max!"
         for building in self.buildings:
             flattened.extend(building.flatten())
         # Pad to MAX_NUM_PLACED_BUILDINGS
         flattened.extend([-1] * ((self.MAX_NUM_PLACED_BUILDINGS * 3) - len(self.buildings) * 3))
 
         # Flatten roads
+        assert len(self.roads) <= self.MAX_NUM_PLACED_ROADS, "Number of roads greater than supported max!"
         for road in self.roads:
             flattened.extend(road.flatten())
         # Pad to MAX_NUM_PLACED_ROADS
@@ -145,6 +147,7 @@ class DynamicBoardState:
         flattened.append(self.robber_location)
 
         # Flatten available actions
+        assert len(self.available_actions) <= self.MAX_NUM_AVAILABLE_ACTIONS, "Available actions greater than supported max!"
         for action in self.available_actions:
             flattened.extend(action.flatten())
         # Pad to MAX_NUM_AVAILABLE_ACTIONS

@@ -9,14 +9,14 @@ from environment.board_state import StaticBoardState
 from environment.game import CatanGame, GameStep
 
 # DEBUG LOGGING
-VERBOSE_LOGGING = True
+VERBOSE_LOGGING = False
 
 # INPUT TENSOR SIZE CHECKS
 ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
 FLATTENED_STATIC_BOARD_STATE_LENGTH = 1817
 EXPECTED_NUMBER_OF_PLAYERS = 4
 FLATTENED_PLAYER_STATE_LENGTH = 26
-FLATTENED_DYNAMIC_BOARD_STATE_LENGTH = 2086
+FLATTENED_DYNAMIC_BOARD_STATE_LENGTH = 1254
 FLATTENED_ACTION_LENGTH = 13
 INPUT_TENSOR_EXPECTED_LENGTH = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH + FLATTENED_ACTION_LENGTH
 
@@ -55,11 +55,11 @@ def create_input_tensor(board_state: StaticBoardState, step: GameStep):
     
     input_tensor.extend(dynamic_board_state.flatten())
     if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
-        assert len(input_tensor) == FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH, "Dynamic board state sensor unexpected size!"
+        assert len(input_tensor) == FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH, "Dynamic board state tensor unexpected size!"
 
     input_tensor.extend(action_taken.flatten())
     if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
-        assert len(input_tensor) == INPUT_TENSOR_EXPECTED_LENGTH, "Action sensor unexpected size!"
+        assert len(input_tensor) == INPUT_TENSOR_EXPECTED_LENGTH, "Action tensor unexpected size!"
 
     return input_tensor
 

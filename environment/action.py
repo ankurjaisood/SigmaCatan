@@ -66,5 +66,5 @@ class Action:
                 f"Flattened action length mismatch! Expected {Action.MAX_ACTION_PARAMETER_LENGTH + 1}, got {len(flattened)}. "
                 "Check that MAX_ACTION_PARAMETER_LENGTH is set correctly."
             )
-
+        
         return flattened

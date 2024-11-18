@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 
 from environment.board_state import StaticBoardState, DynamicBoardState
@@ -12,7 +12,74 @@ from environment.game import CatanGame, GameStep
 # DEBUG FLAGS
 VERBOSE_LOGGING = False
 
+
 class CatanatronParser:
+    @staticmethod
+    def get_action_parameters(action_type: ActionType, static_board_state: StaticBoardState, params: Optional[dict]) -> List[int]:
+        parameters = []
+
+        # actions that dont expect any paramaters
+        if action_type in {
+            ActionType.ROLL,
+            ActionType.END_TURN,
+            ActionType.DISCARD,
+            ActionType.BUY_DEVELOPMENT_CARD,
+            ActionType.PLAY_KNIGHT_CARD,
+            ActionType.PLAY_ROAD_BUILDING,
+            ActionType.CANCEL_TRADE
+        }:
+            # No parameters expected for these actions
+            if params: raise ValueError(f"No parameters should be provided for action type: {action_type}")
+            return parameters
+        
+        else:
+            # paramaters expected for following actions
+            if params is None:
+                raise ValueError(f"Parameters cannot be None for action type: {action_type}")
+
+            if action_type == ActionType.MOVE_ROBBER:
+                # MOVE_ROBBER params: {"hex_id": int, "target_player_id": int}
+                hex_tile = static_board_state.coordinate_to_hex_mapping[tuple(params[0])]
+                player_id = PlayerID.string_to_enum(params[1]) if params[1] else -1
+                parameters.extend([hex_tile.hex_id, player_id])
+
+            elif action_type == ActionType.BUILD_ROAD:
+                # BUILD_ROAD params: {"edge_id": int}
+                parameters.extend(tuple(params))
+                pass
+
+            elif action_type in {
+                ActionType.BUILD_SETTLEMENT,
+                ActionType.BUILD_CITY
+            }:
+                # BUILD_SETTLEMENT/BUILD_CITY params: {"node_id": int}
+                parameters.extend([params])
+
+            elif action_type == ActionType.PLAY_YEAR_OF_PLENTY:
+                # PLAY_YEAR_OF_PLENTY params: {"resource_1": int, "resource_2": int}
+                parameters.extend([ResourceType.string_to_enum(params[0]).value,
+                                   ResourceType.string_to_enum(params[1]).value])
+
+            elif action_type == ActionType.PLAY_MONOPOLY:
+                # PLAY_MONOPOLY params: {"resource": int}
+                parameters.extend([ResourceType.string_to_enum(params).value])
+            
+            elif action_type == ActionType.MARITIME_TRADE:
+                parameters.extend([ResourceType.string_to_enum(param).value if param else -1 for param in params])
+
+            elif action_type in {
+                ActionType.OFFER_TRADE,
+                ActionType.ACCEPT_TRADE,
+                ActionType.REJECT_TRADE,
+                ActionType.CONFIRM_TRADE,
+            }:
+                print("Trading actions not fully supported!")
+
+            else:
+                raise ValueError(f"Unhandled ActionType: {action_type}")
+
+        return parameters
+
     @staticmethod
     def parse_board_json(board_path) -> StaticBoardState:
         with open(board_path, 'r') as f:
@@ -118,7 +185,7 @@ class CatanatronParser:
                 Action(
                     player_id=PlayerID.string_to_enum(action_taken[0]),
                     action=ActionType.string_to_enum(action_taken[1]),
-                    parameters = list(action_taken[2]) if action_taken and isinstance(action_taken[2], (list, tuple)) else ([action_taken[2]] if action_taken and action_taken[2] is not None else [])
+                    parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(action_taken[1]), static_board_state, action_taken[2])
                 )
                 if action_taken
                 else Action(
@@ -172,24 +239,24 @@ class CatanatronParser:
             ]
             
             roads = [
-                Road(edge_id=tuple(road['edge_id']), player_owner=PlayerID.string_to_enum(road['color']))
+                Road(edge_id=tuple(sorted(road['edge_id'])), player_owner=PlayerID.string_to_enum(road['color']))
                 for road in board_state['roads']
             ]
             
             robber_location = static_board_state.coordinate_to_hex_mapping[tuple(board_state['robber_coordinate'])].hex_id
             if VERBOSE_LOGGING: print(f"Robber location (Hex ID:Coordinate): {robber_location}:{board_state['robber_coordinate']}")
             available_actions = [
-                Action(player_id=PlayerID.string_to_enum(action[0]),
-                       action=ActionType.string_to_enum(action[1]),
-                       parameters = list(action_taken[2]) if action_taken and isinstance(action_taken[2], (list, tuple)) else ([action_taken[2]] if action_taken and action_taken[2] is not None else [])
+                Action(player_id=PlayerID.string_to_enum(player),
+                       action=ActionType.string_to_enum(type),
+                       parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(type), static_board_state, params)
                        )
-                for action in game_state['playable_actions']
+                for player, type, params in game_state['playable_actions']
             ]
 
             dynamic_board_state = DynamicBoardState(
                 current_player=current_player_id,
                 buildings=buildings,
-                roads=roads,
+                roads=list(set(roads)),
                 robber_location=robber_location,
                 available_actions=available_actions
             )
