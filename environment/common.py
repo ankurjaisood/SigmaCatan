@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import IntEnum, auto
+from typing import Tuple
 
 class PlayerID(IntEnum):
     ORANGE = auto()
@@ -42,6 +43,17 @@ class HexTile:
 
 @dataclass
 class Building:
-    location: int  # Node ID (0 to 53 on a standard board)
-    type: BuildingType
+    node_id: int  # Node ID (0 to 53 on a standard board)
+    building_type: BuildingType
     player_owner: PlayerID
+
+    def flatten(self):
+        return [self.node_id, self.building_type.value, self.player_owner.value]
+
+@dataclass
+class Road:
+    edge_id: Tuple[int, int]
+    player_owner: PlayerID
+
+    def flatten(self):
+        return [self.edge_id[0], self.edge_id[1], self.player_owner.value]

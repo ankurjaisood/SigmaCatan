@@ -6,11 +6,11 @@ from environment.board_state import StaticBoardState, DynamicBoardState
 from environment.board_state import Node, Edge, HexTile, HexDirection, Port, PortType
 from environment.player_state import PlayerState
 from environment.action import Action, ActionType
-from environment.common import PlayerID, HexTile, ResourceType, BuildingType
+from environment.common import PlayerID, HexTile, ResourceType, BuildingType, Building, Road
 from environment.game import CatanGame, GameStep
 
 # DEBUG FLAGS
-VERBOSE_LOGGING = 1
+VERBOSE_LOGGING = False
 
 class CatanatronParser:
     @staticmethod
@@ -165,12 +165,14 @@ class CatanatronParser:
             # Parse dynamic board state
             board_state = game_state['board']
             buildings = [
-                (building['node_id'], PlayerID.string_to_enum(building['color']), BuildingType.string_to_enum(building['type']))
+                Building(node_id=building['node_id'],
+                         building_type=BuildingType.string_to_enum(building['type']),
+                         player_owner=PlayerID.string_to_enum(building['color']))
                 for building in board_state['buildings']
             ]
             
             roads = [
-                (tuple(road['edge_id']), PlayerID.string_to_enum(road['color']))
+                Road(edge_id=tuple(road['edge_id']), player_owner=PlayerID.string_to_enum(road['color']))
                 for road in board_state['roads']
             ]
             

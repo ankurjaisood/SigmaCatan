@@ -53,14 +53,15 @@ class Action:
     MAX_ACTION_PARAMETER_LENGTH = 11
 
     def flatten(self) -> List[int]:
-        flattened = [int(self.action)]
+        flattened = [self.action.value, self.player_id.value]
+       
         if self.parameters:
             flattened.extend(self.parameters)
 
         # Pad with -1 to ensure consistent length
-        flattened.extend([-1] * (Action.MAX_ACTION_PARAMETER_LENGTH - len(self.parameters or [])))
+        flattened.extend([-1] * (Action.MAX_ACTION_PARAMETER_LENGTH - len(self.parameters)))
 
-        if(len(flattened) != Action.MAX_ACTION_PARAMETER_LENGTH + 1):
+        if(len(flattened) != Action.MAX_ACTION_PARAMETER_LENGTH + 2):
             raise ValueError(
                 f"Flattened action length mismatch! Expected {Action.MAX_ACTION_PARAMETER_LENGTH + 1}, got {len(flattened)}. "
                 "Check that MAX_ACTION_PARAMETER_LENGTH is set correctly."

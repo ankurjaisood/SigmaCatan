@@ -2,7 +2,7 @@ from enum import IntEnum, auto
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
 
-from .common import HexTile, PlayerID, BuildingType
+from .common import HexTile, PlayerID, BuildingType, Building, Road
 from .action import Action
 
 class HexDirection(IntEnum):
@@ -114,14 +114,14 @@ class StaticBoardState:
 @dataclass
 class DynamicBoardState:
     current_player: PlayerID
-    buildings: List[Tuple[Node, PlayerID, BuildingType]]
-    roads: List[Tuple[Edge, PlayerID]]
+    buildings: List[Building]
+    roads: List[Road]
     robber_location: HexTile
     available_actions: List[Action]
 
     MAX_NUM_PLACED_BUILDINGS = 80 # 4 players * 5 settlements * 4 cities
     MAX_NUM_PLACED_ROADS = 60 # 4 players * 15 roads
-    MAX_NUM_AVAILABLE_ACTIONS = 64
+    MAX_NUM_AVAILABLE_ACTIONS = 128
 
     def flatten(self) -> List[int]:
         flattened = []
@@ -131,15 +131,15 @@ class DynamicBoardState:
 
         # Flatten buildings
         for building in self.buildings:
-            flattened.extend(building)  # Node ID, PlayerID, BuildingType
+            flattened.extend(building.flatten())
         # Pad to MAX_NUM_PLACED_BUILDINGS
         flattened.extend([-1] * ((self.MAX_NUM_PLACED_BUILDINGS * 3) - len(self.buildings) * 3))
 
         # Flatten roads
         for road in self.roads:
-            flattened.extend(road)  # Edge ID, PlayerID
+            flattened.extend(road.flatten())
         # Pad to MAX_NUM_PLACED_ROADS
-        flattened.extend([-1] * ((self.MAX_NUM_PLACED_ROADS * 2) - len(self.roads) * 2))
+        flattened.extend([-1] * ((self.MAX_NUM_PLACED_ROADS * 3) - len(self.roads) * 3))
 
         # Flatten robber location
         flattened.append(self.robber_location)
@@ -149,8 +149,8 @@ class DynamicBoardState:
             flattened.extend(action.flatten())
         # Pad to MAX_NUM_AVAILABLE_ACTIONS
         flattened.extend(
-            [-1] * ((self.MAX_NUM_AVAILABLE_ACTIONS * (Action.MAX_ACTION_PARAMETER_LENGTH + 1)) - 
-                    len(self.available_actions) * (Action.MAX_ACTION_PARAMETER_LENGTH + 1))
+            [-1] * ((self.MAX_NUM_AVAILABLE_ACTIONS * (Action.MAX_ACTION_PARAMETER_LENGTH + 2)) - 
+                    len(self.available_actions) * (Action.MAX_ACTION_PARAMETER_LENGTH + 2))
         )
 
         return flattened
