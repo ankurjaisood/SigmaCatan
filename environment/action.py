@@ -5,6 +5,9 @@ from typing import List
 from .common import PlayerID
 
 class ActionType(IntEnum):
+    # Game over
+    GAME_FINISHED = auto()
+    
     # Discrete Actions
     ROLL = auto()  # value is None
     END_TURN = auto()  # value is None

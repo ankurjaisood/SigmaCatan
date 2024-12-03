@@ -190,7 +190,7 @@ class CatanatronParser:
                 if action_taken
                 else Action(
                     player_id=current_player_id,
-                    action=ActionType.END_TURN,
+                    action=ActionType.GAME_FINISHED,
                     parameters=[]
                 )
             )

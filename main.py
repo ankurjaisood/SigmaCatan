@@ -49,47 +49,64 @@ class GameIterator:
         game = parser.parse_data_json(data_path, static_board_state)
         return [static_board_state, game]
 
-    def create_input_tensor(self, 
-                            board_state: StaticBoardState, 
-                            dynamic_board_state: DynamicBoardState,
-                            player_states: List[PlayerState],
+    def create_action_tensor(self, 
                             action_taken: Action):
-        input_state_tensor = []
         input_action_tensor = []
-
-        input_state_tensor.extend(board_state.flatten())
-        
-        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
-            assert len(input_state_tensor) == FLATTENED_STATIC_BOARD_STATE_LENGTH, "Static board state tensor unexpected size!"
-
-        for player_state in player_states:
-            input_state_tensor.extend(player_state.flatten())
-        
-        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
-            assert len(player_states) == EXPECTED_NUMBER_OF_PLAYERS, "Unexpected number of players!"
-            assert len(input_state_tensor) == FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH, "Player state tensor unexpected size!"
-
-        input_state_tensor.extend(dynamic_board_state.flatten())
-        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
-            assert len(input_state_tensor) == INPUT_STATE_TENSOR_EXPECTED_LENGTH, "Dynamic board state tensor unexpected size!"
-
         input_action_tensor.extend(action_taken.flatten())
         if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
             assert len(input_action_tensor) == FLATTENED_ACTION_LENGTH, "Action tensor unexpected size!"
+        return input_action_tensor
 
-        return input_state_tensor, input_action_tensor
+    def create_state_tensor(self, 
+                            board_state: StaticBoardState, 
+                            dynamic_board_state: DynamicBoardState,
+                            player_states: List[PlayerState]):
+        state_tensor = []
+
+        state_tensor.extend(board_state.flatten())
+        
+        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
+            assert len(state_tensor) == FLATTENED_STATIC_BOARD_STATE_LENGTH, "Static board state tensor unexpected size!"
+
+        for player_state in player_states:
+            state_tensor.extend(player_state.flatten())
+        
+        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
+            assert len(player_states) == EXPECTED_NUMBER_OF_PLAYERS, "Unexpected number of players!"
+            assert len(state_tensor) == FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH, "Player state tensor unexpected size!"
+
+        state_tensor.extend(dynamic_board_state.flatten())
+        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
+            assert len(state_tensor) == INPUT_STATE_TENSOR_EXPECTED_LENGTH, "Dynamic board state tensor unexpected size!"
+
+        return state_tensor
     
     def iterate_game(self) -> Generator[list, list, float]:
-        for step in self.game.game_steps:
+        for index, step in enumerate(self.game.game_steps):
             player_states, dynamic_board_state, action_taken = step.step
             reward = self.reward_function.calculate_reward(step.get_player_state_by_ID(self.game.winner))
-            input_state_tensor, input_action_tensor = self.create_input_tensor(
+            input_state_tensor = self.create_state_tensor(
                 self.static_board_state, 
                 dynamic_board_state, 
-                player_states, 
-                action_taken)
+                player_states)
+            input_action_tensor = self.create_action_tensor(action_taken)
             
-            yield input_state_tensor, input_action_tensor, reward
+            # TODO(jaisood): Is there a better way to do this
+            next_state = None
+            try:
+                next_player_states, next_dynamic_board_sate, _ = self.game.game_steps[index + 1].step
+                next_state = self.create_state_tensor(
+                    self.static_board_state,
+                    next_dynamic_board_sate,
+                    next_player_states)
+            except IndexError as e:
+                print(action_taken)
+                print(f"No next state prime found! Game is over!")
+
+            next_state_tensor = next_state if next_state is not None else [-1] * INPUT_STATE_TENSOR_EXPECTED_LENGTH
+            game_finished_tensor = [0] if next_state is not None else [1]
+
+            yield input_state_tensor, input_action_tensor, [reward], next_state_tensor, game_finished_tensor
 
     def __iter__(self):
         # Make the class iterable by returning the generator
@@ -104,16 +121,18 @@ def main():
     # Process the directory
     if os.path.isdir(args.dataset_dir):
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
-            print(f"Processing: {board_path}, {data_path}")
             game_iterator = GameIterator(board_path, data_path)
 
-            for input_state_tensor, input_action_tensor, reward in game_iterator:
+            for input_state_tensor, input_action_tensor, reward_tensor, next_state_tensor, game_finished_tensor in game_iterator:
                 if VERBOSE_LOGGING:
                     print(f"Input State Tensor Size: {len(input_state_tensor)}")
                     print(f"Input State Tensor:\n {input_state_tensor}")
                     print(f"Input Action Tensor Size: {len(input_action_tensor)}")
                     print(f"Input Action Tensor:\n {input_action_tensor}")
-                    print(f"Reward: {reward}")
+                    print(f"Reward: {reward_tensor}")
+                    print(f"Next State Tensor Size: {len(next_state_tensor)}")
+                    print(f"Next State Tensor:\n {next_state_tensor}")
+                    print(f"Game Finished Tensor: {game_finished_tensor}")
 
     else:
         print(f"The specified path {args.dataset_dir} is not a directory.")
