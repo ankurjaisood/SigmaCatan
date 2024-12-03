@@ -36,7 +36,7 @@ class ReplayBuffer:
         batch = [self.buffer[idx] for idx in indices]
         states, actions, rewards, next_states, dones = zip(*batch)
         return (torch.tensor(states, dtype=torch.float32),
-                torch.tensor(actions, dtype=torch.long),
+                torch.tensor(actions, dtype=torch.float32),
                 torch.tensor(rewards, dtype=torch.float32),
                 torch.tensor(next_states, dtype=torch.float32),
                 torch.tensor(dones, dtype=torch.float32))

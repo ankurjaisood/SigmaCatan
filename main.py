@@ -8,7 +8,7 @@ from interfaces.catanatron_interface import CatanatronParser
 from environment.board_state import StaticBoardState, DynamicBoardState
 from environment.player_state import PlayerState
 from environment.game import CatanGame, GameStep
-from environment.action import Action
+from environment.action import Action, ActionType
 from rewards.reward_functions import VPRewardFunction, BasicRewardFunction
 from agents.dqn import DQNTrainer
 
@@ -127,7 +127,7 @@ def main():
     # Process the directory
     if os.path.isdir(args.dataset_dir):
         input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH + FLATTENED_ACTION_LENGTH
-        output_tensor_expected_length = 19 # TODO(jaisood): Properly calculate this
+        output_tensor_expected_length = max(ActionType)
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
 
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
