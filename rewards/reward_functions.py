@@ -54,7 +54,8 @@ class BasicRewardFunction(RewardFunction):
 
         reward = 0.0
         reward += self.w_vp * player_state.ACTUAL_VICTORY_POINTS
-        reward += self.w_road * player_state.LONGEST_ROAD_LENGTH
+        # reward += self.w_road * player_state.LONGEST_ROAD_LENGTH
+        reward += self.w_road * (15 - player_state.ROADS_AVAILABLE) # TODO check which road reward is better
         reward += self.w_knight * (player_state.KNIGHTS_IN_HAND + player_state.NUMBER_PLAYED_KNIGHT)
         
         total_cards_in_hand = player_state.ORE_IN_HAND + player_state.BRICK_IN_HAND + player_state.WHEAT_IN_HAND + player_state.WOOD_IN_HAND
