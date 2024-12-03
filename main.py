@@ -10,6 +10,7 @@ from environment.player_state import PlayerState
 from environment.game import CatanGame, GameStep
 from environment.action import Action
 from rewards.reward_functions import VPRewardFunction, BasicRewardFunction
+from agents.dqn import DQNTrainer
 
 # DEBUG LOGGING
 VERBOSE_LOGGING = False
@@ -100,7 +101,6 @@ class GameIterator:
                     next_dynamic_board_sate,
                     next_player_states)
             except IndexError as e:
-                print(action_taken)
                 print(f"No next state prime found! Game is over!")
 
             next_state_tensor = next_state if next_state is not None else [-1] * INPUT_STATE_TENSOR_EXPECTED_LENGTH
@@ -120,19 +120,12 @@ def main():
 
     # Process the directory
     if os.path.isdir(args.dataset_dir):
+        input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH + FLATTENED_ACTION_LENGTH
+        output_tensor_expected_length = 19 # TODO(jaisood): Properly calculate this
+        dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
             game_iterator = GameIterator(board_path, data_path)
-
-            for input_state_tensor, input_action_tensor, reward_tensor, next_state_tensor, game_finished_tensor in game_iterator:
-                if VERBOSE_LOGGING:
-                    print(f"Input State Tensor Size: {len(input_state_tensor)}")
-                    print(f"Input State Tensor:\n {input_state_tensor}")
-                    print(f"Input Action Tensor Size: {len(input_action_tensor)}")
-                    print(f"Input Action Tensor:\n {input_action_tensor}")
-                    print(f"Reward: {reward_tensor}")
-                    print(f"Next State Tensor Size: {len(next_state_tensor)}")
-                    print(f"Next State Tensor:\n {next_state_tensor}")
-                    print(f"Game Finished Tensor: {game_finished_tensor}")
+            dqn_trainer.train(game_iterator)
 
     else:
         print(f"The specified path {args.dataset_dir} is not a directory.")

@@ -6,24 +6,26 @@ import torch.nn.functional as F
 import numpy as np
 from collections import deque
 
+VERBOSE_LOGGING = False
+
 class DQN(nn.Module):
-    def __init__(self, input_tensor_size=3188, output_action_space_size=832, hidden_layer_size=512):
+    def __init__(self, input_tensor_size: int, output_action_space_size: int, hidden_layer_size=512):
         super(DQN, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(input_tensor_size, hidden_layer_size),  
             nn.ReLU(),                  
             nn.Linear(hidden_layer_size, hidden_layer_size),        
             nn.ReLU(),                  
-            nn.Linear(hidden_layer_size, hidden_layer_size//2),        
+            nn.Linear(hidden_layer_size, hidden_layer_size),        
             nn.ReLU(),                  
-            nn.Linear(hidden_layer_size//2, output_action_space_size)
+            nn.Linear(hidden_layer_size, output_action_space_size)
         )
 
     def forward(self, x):
         return self.network(x)
 
 class ReplayBuffer:
-    def __init__(self, size):
+    def __init__(self, size: int):
         self.buffer = deque(maxlen=size)
 
     def add(self, state, action, reward, next_state, done):
@@ -44,16 +46,15 @@ class ReplayBuffer:
     
 class DQNTrainer:
     def __init__(self,
-                 input_size,
-                 output_size,
+                 input_size: int,
+                 output_size: int,
                  gamma=0.99,
                  learning_rate=1e-3,
                  batch_size=64,
                  buffer_size=100000,
                  target_update_freq=1000,
-                 num_episodes=1000,
-                 max_steps_per_episode=200,
-                 model_save_path="./dqn_model.pth"):
+                 num_epochs=1000,
+                 max_steps_per_episode=200):
         
         # Hyperparameters
         self.input_size = input_size
@@ -63,9 +64,9 @@ class DQNTrainer:
         self.batch_size = batch_size
         self.buffer_size = buffer_size
         self.target_update_freq = target_update_freq
-        self.num_episodes = num_episodes
+        self.num_epochs = num_epochs
         self.max_steps_per_episode = max_steps_per_episode
-        self.model_save_path = model_save_path
+        self.model_save_path = f"./model-{input_size}x{output_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}.pth"
 
         # Initialize Networks and Optimizer
         self.policy_net = DQN(input_size, output_size)
@@ -83,8 +84,21 @@ class DQNTrainer:
         for epoch in range(self.num_epochs):
             total_reward = 0
             for (state, action, reward, next_state, done) in data_iterator:
+                if VERBOSE_LOGGING:
+                    print("\n")
+                    print(f"Input State Tensor Size: {len(state)}")
+                    print(f"Input Action Tensor Size: {len(action)}")
+                    print(f"Reward: {reward}")
+                    print(f"Next State Tensor Size: {len(next_state)}")
+                    print(f"Game Finished Tensor: {done}")
+                    
+                    #print(f"Input State Tensor:\n {state}")
+                    #print(f"Input Action Tensor:\n {action}")
+                    #print(f"Next State Tensor:\n {next_state}")
+
+
                 steps += 1
-                total_reward += reward
+                total_reward += reward[0]
 
                 self.replay_buffer.add(state, action, reward, next_state, done)
 
