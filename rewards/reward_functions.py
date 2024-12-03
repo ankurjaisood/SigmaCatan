@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from environment import PlayerState, PlayerID
+from environment import PlayerState, PlayerID, ActionType, Action
 
 class RewardFunction(ABC):
     """
@@ -41,23 +41,42 @@ class BasicRewardFunction(RewardFunction):
                  w_vp: float = 10.0,
                  w_road: float = 0.5,
                  w_knight: float = float(2/3),
-                 w_handSizePenalty: float = 0.1) -> None:
+                 w_handSizePenalty: float = 0.1,
+                 w_act_build: float = 0.1)-> None:
         super().__init__(player)
 
         self.w_vp = w_vp
         self.w_road = w_road
         self.w_knight = w_knight
         self.w_handSizePenalty = w_handSizePenalty
+        self.w_act_build = w_act_build
 
-    def calculate_reward(self, player_state: PlayerState) -> float:
+    def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
         super().calculate_reward(player_state)
 
         reward = 0.0
+
+        # Reward, victory points
+        if action.action == ActionType.BUILD_SETTLEMENT:
+            reward += self.w_vp * 1
+        elif action.action == ActionType.BUILD_CITY:
+            reward += self.w_vp * 2
+        else:
+            pass
+        
         reward += self.w_vp * player_state.ACTUAL_VICTORY_POINTS
-        # reward += self.w_road * player_state.LONGEST_ROAD_LENGTH
-        reward += self.w_road * (15 - player_state.ROADS_AVAILABLE) # TODO check which road reward is better
+
+        # Reward, board and player state
+        if action.action == ActionType.BUILD_ROAD:
+            # reward += self.w_road * player_state.LONGEST_ROAD_LENGTH # this uses the longest road length
+            reward += self.w_road * (15 - (player_state.ROADS_AVAILABLE - 1) ) # TODO check which road reward is better
+        else:
+            # reward += self.w_road * player_state.LONGEST_ROAD_LENGTH # this uses the longest road length
+            reward += self.w_road * (15 - player_state.ROADS_AVAILABLE)
+
         reward += self.w_knight * (player_state.KNIGHTS_IN_HAND + player_state.NUMBER_PLAYED_KNIGHT)
         
         total_cards_in_hand = player_state.ORE_IN_HAND + player_state.BRICK_IN_HAND + player_state.WHEAT_IN_HAND + player_state.WOOD_IN_HAND
         reward += self.w_handSizePenalty * min(0, 7 - total_cards_in_hand)
+
         return reward
