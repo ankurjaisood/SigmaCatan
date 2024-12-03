@@ -1,3 +1,5 @@
+# environment/game.py
+
 from dataclasses import dataclass
 from typing import List, Tuple
 
@@ -8,15 +10,14 @@ from .action import Action
 
 @dataclass
 class GameStep:
-    step: Tuple[List[PlayerState], DynamicBoardState, Action]
+    step: Tuple[List[PlayerState], DynamicBoardState]
+    action: Action
 
     def get_player_state_by_ID(self, player_id: PlayerID):
-        player_state = None
-        for p_sate in self.step[0]:
-            if p_sate.PLAYER_ID == player_id:
-                player_state = p_sate
-                break
-        return player_state
+        for p_state in self.step[0]:
+            if p_state.PLAYER_ID == player_id:
+                return p_state
+        return None
 
 @dataclass
 class CatanGame:

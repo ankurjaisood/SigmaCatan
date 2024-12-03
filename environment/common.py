@@ -7,7 +7,7 @@ class PlayerID(IntEnum):
     WHITE = auto()
     BLUE = auto()
     RED = auto()
-    
+
     @staticmethod
     def string_to_enum(s : str):
         return PlayerID[s.upper()]
@@ -15,6 +15,17 @@ class PlayerID(IntEnum):
 class ResourceType(IntEnum):
     WATER = auto()
     DESERT = auto()
+    WOOD = auto()
+    BRICK = auto()
+    SHEEP = auto()
+    WHEAT = auto()
+    ORE = auto()
+
+    @staticmethod
+    def string_to_enum(s : str):
+        return ResourceType[s.upper()]
+
+class ResourceCardType(IntEnum):
     WOOD = auto()
     BRICK = auto()
     SHEEP = auto()
@@ -57,7 +68,7 @@ class Road:
 
     def flatten(self):
         return [self.edge_id[0], self.edge_id[1], self.player_owner.value]
-    
+
     def __hash__(self):
         return hash((self.edge_id, self.player_owner))
 

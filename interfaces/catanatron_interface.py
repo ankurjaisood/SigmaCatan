@@ -26,12 +26,11 @@ class CatanatronParser:
             ActionType.BUY_DEVELOPMENT_CARD,
             ActionType.PLAY_KNIGHT_CARD,
             ActionType.PLAY_ROAD_BUILDING,
-            ActionType.CANCEL_TRADE
         }:
             # No parameters expected for these actions
             if params: raise ValueError(f"No parameters should be provided for action type: {action_type}")
             return parameters
-        
+
         else:
             # paramaters expected for following actions
             if params is None:
@@ -63,17 +62,9 @@ class CatanatronParser:
             elif action_type == ActionType.PLAY_MONOPOLY:
                 # PLAY_MONOPOLY params: {"resource": int}
                 parameters.extend([ResourceType.string_to_enum(params).value])
-            
+
             elif action_type == ActionType.MARITIME_TRADE:
                 parameters.extend([ResourceType.string_to_enum(param).value if param else -1 for param in params])
-
-            elif action_type in {
-                ActionType.OFFER_TRADE,
-                ActionType.ACCEPT_TRADE,
-                ActionType.REJECT_TRADE,
-                ActionType.CONFIRM_TRADE,
-            }:
-                print("Trading actions not fully supported!")
 
             else:
                 raise ValueError(f"Unhandled ActionType: {action_type}")
@@ -110,7 +101,7 @@ class CatanatronParser:
                 port_id = tile.get('port_id')
                 resource = tile.get('resource')
                 port_type = PortType.GENERIC if resource is None else PortType[resource]
-                
+
                 ports.append(Port(port_id=port_id, port_type=port_type, nodes=list()))
                 id_to_port_mapping[port_id] = ports[-1]
             else:
@@ -167,25 +158,31 @@ class CatanatronParser:
 
         winner = json_data.get('winner')
         winner_id = PlayerID.string_to_enum(winner)
-        if(VERBOSE_LOGGING): print(f"Game winner: {winner}:{winner_id}")
-        
+        if VERBOSE_LOGGING:
+            print(f"Game winner: {winner}:{winner_id}")
+
         game = json_data.get('game')
         game_steps = []
         for step in game:
             game_state = step.get('state')
-            
+
             # Get current player
             current_player = game_state.get('current_player')
             current_player_id = PlayerID.string_to_enum(current_player)
-            if VERBOSE_LOGGING: print(f"Current player: {current_player}:{current_player_id}")
+            if VERBOSE_LOGGING:
+                print(f"Current player: {current_player}:{current_player_id}")
 
-                        # Get action that was taken by player
+            # Get action that was taken by player
             action_taken = step.get('action')
             action_taken_by_player = (
                 Action(
                     player_id=PlayerID.string_to_enum(action_taken[0]),
                     action=ActionType.string_to_enum(action_taken[1]),
-                    parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(action_taken[1]), static_board_state, action_taken[2])
+                    parameters=CatanatronParser.get_action_parameters(
+                        ActionType.string_to_enum(action_taken[1]),
+                        static_board_state,
+                        action_taken[2]
+                    )
                 )
                 if action_taken
                 else Action(
@@ -232,25 +229,38 @@ class CatanatronParser:
             # Parse dynamic board state
             board_state = game_state['board']
             buildings = [
-                Building(node_id=building['node_id'],
-                         building_type=BuildingType.string_to_enum(building['type']),
-                         player_owner=PlayerID.string_to_enum(building['color']))
+                Building(
+                    node_id=building['node_id'],
+                    building_type=BuildingType.string_to_enum(building['type']),
+                    player_owner=PlayerID.string_to_enum(building['color'])
+                )
                 for building in board_state['buildings']
             ]
-            
+
             roads = [
-                Road(edge_id=tuple(sorted(road['edge_id'])), player_owner=PlayerID.string_to_enum(road['color']))
+                Road(
+                    edge_id=tuple(sorted(road['edge_id'])),
+                    player_owner=PlayerID.string_to_enum(road['color'])
+                )
                 for road in board_state['roads']
             ]
-            
-            robber_location = static_board_state.coordinate_to_hex_mapping[tuple(board_state['robber_coordinate'])].hex_id
-            if VERBOSE_LOGGING: print(f"Robber location (Hex ID:Coordinate): {robber_location}:{board_state['robber_coordinate']}")
+
+            robber_coordinate = tuple(board_state['robber_coordinate'])
+            robber_location = static_board_state.coordinate_to_hex_mapping[robber_coordinate].hex_id
+            if VERBOSE_LOGGING:
+                print(f"Robber location (Hex ID:Coordinate): {robber_location}:{robber_coordinate}")
+
             available_actions = [
-                Action(player_id=PlayerID.string_to_enum(player),
-                       action=ActionType.string_to_enum(type),
-                       parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(type), static_board_state, params)
-                       )
-                for player, type, params in game_state['playable_actions']
+                Action(
+                    player_id=PlayerID.string_to_enum(player),
+                    action=ActionType.string_to_enum(action_type),
+                    parameters=CatanatronParser.get_action_parameters(
+                        ActionType.string_to_enum(action_type),
+                        static_board_state,
+                        params
+                    )
+                )
+                for player, action_type, params in game_state['playable_actions']
             ]
 
             dynamic_board_state = DynamicBoardState(
@@ -260,9 +270,18 @@ class CatanatronParser:
                 robber_location=robber_location,
                 available_actions=available_actions
             )
-            game_steps.append(GameStep(step=(player_states_list, dynamic_board_state, action_taken_by_player)))
+
+            # Correctly construct GameStep with two elements in step tuple and separate action
+            game_steps.append(GameStep(
+                step=(
+                    player_states_list,    # List of PlayerState objects
+                    dynamic_board_state    # DynamicBoardState object (includes robber_location and available_actions)
+                ),
+                action=action_taken_by_player   # Action taken at this step
+            ))
 
         return CatanGame(
             winner=winner_id,
             game_steps=game_steps
         )
+
