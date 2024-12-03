@@ -13,7 +13,7 @@ class RewardFunction(ABC):
         
     @abstractmethod
     #def calculate_reward(self, player_state: Any, action: Any, next_state: Any) -> float:
-    def calculate_reward(self, player_state: PlayerState) -> float:
+    def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
         """
         Calculate the reward for taking an action in a given state
         and transitioning to a next state. FOR NOW ONLY USES PLAYER STATE.
@@ -25,14 +25,15 @@ class RewardFunction(ABC):
             float: The calculated reward.
         """
         assert self.player == player_state.PLAYER_ID, f"Reward function: player ID {self.player} doesnt match ID of player state passed: {player_state.PLAYER_ID}"
+        assert self.player == action.player_id, f"Reward function: player ID {self.player} doesnt match ID of action passed: {action.player_id}"
 
 class VPRewardFunction(RewardFunction):
     def __init__(self,
                  player: PlayerID):
         super().__init__(player)
 
-    def calculate_reward(self, player_state: PlayerState) -> float:
-        super().calculate_reward(player_state)
+    def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
+        super().calculate_reward(player_state, action)
         return player_state.ACTUAL_VICTORY_POINTS
     
 class BasicRewardFunction(RewardFunction):
@@ -50,7 +51,7 @@ class BasicRewardFunction(RewardFunction):
         self.w_handSizePenalty = w_handSizePenalty
 
     def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
-        super().calculate_reward(player_state)
+        super().calculate_reward(player_state, action)
 
         reward = 0.0
 

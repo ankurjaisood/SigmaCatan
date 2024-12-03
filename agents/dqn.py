@@ -56,6 +56,10 @@ class DQNTrainer:
                  num_epochs=1000,
                  max_steps_per_episode=200):
         
+        # Device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"PyTorch using device: {self.device}")
+        
         # Hyperparameters
         self.input_size = input_size
         self.output_size = output_size
@@ -71,6 +75,9 @@ class DQNTrainer:
         # Initialize Networks and Optimizer
         self.policy_net = DQN(input_size, output_size)
         self.target_net = DQN(input_size, output_size)
+        self.policy_net.to(self.device)
+        self.target_net.to(self.device)
+
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
@@ -118,6 +125,7 @@ class DQNTrainer:
 
     def optimize_model(self):
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
+        states, actions, rewards, next_states, dones = states.to(self.device), actions.to(self.device), rewards.to(self.device), next_states.to(self.device), dones.to(self.device)
 
         # Q(s, a)
         q_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)

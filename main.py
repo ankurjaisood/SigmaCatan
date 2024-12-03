@@ -85,7 +85,13 @@ class GameIterator:
     def iterate_game(self) -> Generator[list, list, float]:
         for index, step in enumerate(self.game.game_steps):
             player_states, dynamic_board_state, action_taken = step.step
-            reward = self.reward_function.calculate_reward(step.get_player_state_by_ID(self.game.winner))
+
+            # skip this turn if its not the winning players turn (we are the winning player)
+            if self.game.winner != dynamic_board_state.current_player:
+                if VERBOSE_LOGGING: print(f"Skipping step {index} because it is not the winning player's turn.")
+                continue
+
+            reward = self.reward_function.calculate_reward(step.get_player_state_by_ID(self.game.winner), action_taken)
             input_state_tensor = self.create_state_tensor(
                 self.static_board_state, 
                 dynamic_board_state, 
@@ -123,6 +129,7 @@ def main():
         input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH + FLATTENED_ACTION_LENGTH
         output_tensor_expected_length = 19 # TODO(jaisood): Properly calculate this
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
+
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
             game_iterator = GameIterator(board_path, data_path)
             dqn_trainer.train(game_iterator)
