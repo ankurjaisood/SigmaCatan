@@ -5,8 +5,11 @@ import argparse
 from typing import Iterator, Tuple, List
 
 from interfaces.catanatron_interface import CatanatronParser
-from environment.board_state import StaticBoardState
+from environment.board_state import StaticBoardState, DynamicBoardState
+from environment.player_state import PlayerState
 from environment.game import CatanGame, GameStep
+from environment.action import Action
+from rewards.reward_functions import VPRewardFunction, BasicRewardFunction
 
 # DEBUG LOGGING
 VERBOSE_LOGGING = False
@@ -36,9 +39,11 @@ def parse_data(board_path, data_path) -> Tuple[StaticBoardState, CatanGame]:
     game = parser.parse_data_json(data_path, static_board_state)
     return [static_board_state, game]
 
-def create_input_tensor(board_state: StaticBoardState, step: GameStep):
+def create_input_tensor(board_state: StaticBoardState, 
+                        dynamic_board_state: DynamicBoardState,
+                        player_states: List[PlayerState],
+                        action_taken: Action):
     input_tensor = []
-    player_states, dynamic_board_state, action_taken = step.step
         
     input_tensor.extend(board_state.flatten())
     
@@ -52,7 +57,6 @@ def create_input_tensor(board_state: StaticBoardState, step: GameStep):
         assert len(player_states) == EXPECTED_NUMBER_OF_PLAYERS, "Unexpected number of players!"
         assert len(input_tensor) == FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH, "Player state tensor unexpected size!"
 
-    
     input_tensor.extend(dynamic_board_state.flatten())
     if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
         assert len(input_tensor) == FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH, "Dynamic board state tensor unexpected size!"
@@ -74,9 +78,12 @@ def main():
         for board_path, data_path in process_directory_iterator(args.dataset_dir):
             print(f"Processing: {board_path}, {data_path}")
             static_board_state, game = parse_data(board_path, data_path)
+            reward_function = BasicRewardFunction(game.winner)
 
             for step in game.game_steps:
-                input_tensor = create_input_tensor(static_board_state, step)
+                player_states, dynamic_board_state, action_taken = step.step
+                reward = reward_function.calculate_reward(step.get_player_state_by_ID(game.winner))
+                input_tensor = create_input_tensor(static_board_state, dynamic_board_state, player_states, action_taken)
 
                 if VERBOSE_LOGGING:
                     print(f"Input Tensor Size: {len(input_tensor)}")
