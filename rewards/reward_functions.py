@@ -41,15 +41,13 @@ class BasicRewardFunction(RewardFunction):
                  w_vp: float = 10.0,
                  w_road: float = 0.5,
                  w_knight: float = float(2/3),
-                 w_handSizePenalty: float = 0.1,
-                 w_act_build: float = 0.1)-> None:
+                 w_handSizePenalty: float = 0.1)-> None:
         super().__init__(player)
 
         self.w_vp = w_vp
         self.w_road = w_road
         self.w_knight = w_knight
         self.w_handSizePenalty = w_handSizePenalty
-        self.w_act_build = w_act_build
 
     def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
         super().calculate_reward(player_state)
