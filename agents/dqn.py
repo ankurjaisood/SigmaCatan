@@ -54,8 +54,8 @@ class DQNTrainer:
                  learning_rate=1e-4,
                  batch_size=512,
                  buffer_size=100000,
-                 target_update_freq=5000,
-                 num_epochs=6,
+                 target_update_freq=2500,
+                 num_epochs=1,
                  max_steps_per_episode=200):
 
         # Device
