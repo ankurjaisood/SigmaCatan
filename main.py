@@ -3,6 +3,7 @@
 import os
 import argparse
 import random
+import time
 from typing import Generator, Iterator, Tuple, List
 
 from interfaces.catanatron_interface import CatanatronParser
@@ -168,8 +169,13 @@ def main():
         output_tensor_expected_length = OUTPUT_TENSOR_EXPECTED_LENGTH
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
         game_iterator = GameIterator(args.dataset_dir, args.static_board)
+        
+        start_time = time.time()
         dqn_trainer.train(game_iterator)
+        end_time = time.time()
 
+        duration = end_time - start_time
+        print(f"Time taken: {duration:.2f} seconds")
     else:
         print(f"The specified path {args.dataset_dir} is not a directory.")
 
