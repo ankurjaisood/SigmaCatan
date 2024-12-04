@@ -24,7 +24,7 @@ FLATTENED_DYNAMIC_BOARD_STATE_LENGTH = 1254
 INPUT_STATE_TENSOR_EXPECTED_LENGTH = 2407 # FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS*FLATTENED_PLAYER_STATE_LENGTH
 OUTPUT_TENSOR_EXPECTED_LENGTH = (len(ActionType)+1) * 1000
 
-FLATTENED_ACTION_LENGTH =  1 #13
+FLATTENED_ACTION_LENGTH = 1 #13
 
 def process_directory_iterator(base_dir: str) -> Iterator[Tuple[str, str]]:
     for root, dirs, _ in os.walk(base_dir):
@@ -49,7 +49,7 @@ class GameIterator:
         parser = CatanatronParser()
         static_board_state = parser.parse_board_json(board_path)
         game = parser.parse_data_json(data_path, static_board_state)
-        return [static_board_state, game]
+        return (static_board_state, game)
 
     def create_action_tensor(self,
                             action_taken: Action):

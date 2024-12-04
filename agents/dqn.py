@@ -142,18 +142,14 @@ class DQNTrainer:
         # print(f"Dones shape: {dones.shape}")            # Expected: [batch_size]
 
         # Q(s, a)
-        actions_unsqueeze = actions.unsqueeze(1)
-        #print(f"Actions unsqueeze shape: {actions_unsqueeze.shape}")    # Expected: [batch_size, 1]
-
         q_values = self.policy_net(states).gather(1, actions)
-        #print(f"Q-Values shape: {q_values.shape}")    # Expected: [batch_size, 1]
-
-        q_values_squeeze = q_values.squeeze(1)
-        #print(f"Q-Values squeeze shape: {q_values_squeeze.shape}")    # Expected: [batch_size]
+        # print(f"Q-Values shape: {q_values.shape}")    # Expected: [batch_size, 1]
 
         with torch.no_grad():
             max_next_q_values = self.target_net(next_states).max(1)[0]
-            target_q_values = rewards + self.gamma * max_next_q_values * (1 - dones)
+            target_q_values = rewards.squeeze() + self.gamma * max_next_q_values * (1 - dones.squeeze())
+            target_q_values = target_q_values.unsqueeze(1)
+            # print(f"Target Q-Values shape: {target_q_values.shape}")    # Expected: [batch_size, 1]
 
         # Loss
         loss = nn.MSELoss()(q_values, target_q_values)
