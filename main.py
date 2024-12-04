@@ -2,6 +2,7 @@
 
 import os
 import argparse
+import random
 from typing import Generator, Iterator, Tuple, List
 
 from interfaces.catanatron_interface import CatanatronParser
@@ -26,30 +27,38 @@ OUTPUT_TENSOR_EXPECTED_LENGTH = (len(ActionType)+1) * 1000
 
 FLATTENED_ACTION_LENGTH = 1 #13
 
-def process_directory_iterator(base_dir: str) -> Iterator[Tuple[str, str]]:
-    for root, dirs, _ in os.walk(base_dir):
-        for subdir in dirs:
-            subdir_path = os.path.join(root, subdir)
-            board_file = os.path.join(subdir_path, "board.json")
-            data_file = os.path.join(subdir_path, "data.json")
-
-            if os.path.exists(board_file) and os.path.exists(data_file):
-                yield board_file, data_file
-
 class GameIterator:
     def __init__(self,
-                 board_path: str,
-                 data_path: str) -> None:
+                 dir_path: str) -> None:
+        self.parser = CatanatronParser()
+        self.games_paths = self.process_directory_iterator(dir_path)
+        self.games = self.get_games()
+        random.shuffle(self.games) # Shuffle the games to prevent overfitting
 
-        print(f"Processing: {board_path}, {data_path}")
-        self.static_board_state, self.game = self.parse_data(board_path, data_path)
-        self.reward_function = BasicRewardFunction(self.game.winner)
+    def process_directory_iterator(self, base_dir: str) -> List[Tuple[str, str]]:
+        game_paths = []
+        for root, dirs, _ in os.walk(base_dir):
+            for subdir in dirs:
+                subdir_path = os.path.join(root, subdir)
+                board_file = os.path.join(subdir_path, "board.json")
+                data_file = os.path.join(subdir_path, "data.json")
 
+                if os.path.exists(board_file) and os.path.exists(data_file):
+                    game_paths.append((board_file, data_file))
+        return game_paths
+    
     def parse_data(self, board_path, data_path) -> Tuple[StaticBoardState, CatanGame]:
-        parser = CatanatronParser()
-        static_board_state = parser.parse_board_json(board_path)
-        game = parser.parse_data_json(data_path, static_board_state)
+        static_board_state = self.parser.parse_board_json(board_path)
+        game = self.parser.parse_data_json(data_path, static_board_state)
         return (static_board_state, game)
+    
+    def get_games(self) -> List[Tuple[StaticBoardState, CatanGame]]:
+        games = []
+        for board_path, data_path in self.games_paths:
+            print(f"Processing: {board_path}, {data_path}")
+            static_board_state, game = self.parse_data(board_path, data_path)
+            games.append((static_board_state, game))
+        return games
 
     def create_action_tensor(self,
                             action_taken: Action):
@@ -84,36 +93,39 @@ class GameIterator:
         return state_tensor
 
     def iterate_game(self) -> Generator[list, list, float]:
-        for index, step in enumerate(self.game.game_steps):
-            player_states, dynamic_board_state, action_taken = step.step
+        for game_index, game_data in enumerate(self.games):
+            static_board_state, game = game_data
+            reward_function = BasicRewardFunction(game.winner)
+            for index, step in enumerate(game.game_steps):
+                player_states, dynamic_board_state, action_taken = step.step
 
-            # skip this turn if its not the winning players turn (we are the winning player)
-            if self.game.winner != dynamic_board_state.current_player:
-                if VERBOSE_LOGGING: print(f"Skipping step {index} because it is not the winning player's turn.")
-                continue
+                # skip this turn if its not the winning players turn (we are the winning player)
+                if game.winner != dynamic_board_state.current_player:
+                    if VERBOSE_LOGGING: print(f"Skipping step {index} because it is not the winning player's turn.")
+                    continue
 
-            reward = self.reward_function.calculate_reward(step.get_player_state_by_ID(self.game.winner), action_taken)
-            input_state_tensor = self.create_state_tensor(
-                self.static_board_state,
-                dynamic_board_state,
-                player_states)
-            input_action_tensor = self.create_action_tensor(action_taken)
+                reward = reward_function.calculate_reward(step.get_player_state_by_ID(game.winner), action_taken)
+                input_state_tensor = self.create_state_tensor(
+                    static_board_state,
+                    dynamic_board_state,
+                    player_states)
+                input_action_tensor = self.create_action_tensor(action_taken)
 
-            # TODO(jaisood): Is there a better way to do this
-            next_state = None
-            try:
-                next_player_states, next_dynamic_board_sate, _ = self.game.game_steps[index + 1].step
-                next_state = self.create_state_tensor(
-                    self.static_board_state,
-                    next_dynamic_board_sate,
-                    next_player_states)
-            except IndexError as e:
-                print(f"No next state prime found! Game is over!")
+                # TODO(jaisood): Is there a better way to do this
+                next_state = None
+                try:
+                    next_player_states, next_dynamic_board_sate, _ = game.game_steps[index + 1].step
+                    next_state = self.create_state_tensor(
+                        static_board_state,
+                        next_dynamic_board_sate,
+                        next_player_states)
+                except IndexError as e:
+                    print(f"Game: {game_index} No next state prime found! Game is over!")
 
-            next_state_tensor = next_state if next_state is not None else [-1] * INPUT_STATE_TENSOR_EXPECTED_LENGTH
-            game_finished_tensor = [0] if next_state is not None else [1]
+                next_state_tensor = next_state if next_state is not None else [-1] * INPUT_STATE_TENSOR_EXPECTED_LENGTH
+                game_finished_tensor = [0] if next_state is not None else [1]
 
-            yield input_state_tensor, input_action_tensor, [reward], next_state_tensor, game_finished_tensor
+                yield input_state_tensor, input_action_tensor, [reward], next_state_tensor, game_finished_tensor
 
     def __iter__(self):
         # Make the class iterable by returning the generator
@@ -131,10 +143,8 @@ def main():
         input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH
         output_tensor_expected_length =  OUTPUT_TENSOR_EXPECTED_LENGTH #19 # TODO(jaisood): Properly calculate this
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
-
-        for board_path, data_path in process_directory_iterator(args.dataset_dir):
-            game_iterator = GameIterator(board_path, data_path)
-            dqn_trainer.train(game_iterator)
+        game_iterator = GameIterator(args.dataset_dir)
+        dqn_trainer.train(game_iterator)
 
     else:
         print(f"The specified path {args.dataset_dir} is not a directory.")

@@ -52,9 +52,9 @@ class DQNTrainer:
                  output_size: int,
                  gamma=0.99,
                  learning_rate=1e-3,
-                 batch_size=64,
+                 batch_size=512,
                  buffer_size=100000,
-                 target_update_freq=1000,
+                 target_update_freq=512*10,
                  num_epochs=1000,
                  max_steps_per_episode=200):
 
