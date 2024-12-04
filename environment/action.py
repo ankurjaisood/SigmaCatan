@@ -47,20 +47,20 @@ class ActionType(IntEnum):
         return ActionType[s.upper()]
 
 ACTION_TYPE_BASE = {
-    ActionType.GAME_FINISHED: 0,
-    ActionType.ROLL: 1000,
-    ActionType.END_TURN: 2000,
-    ActionType.MOVE_ROBBER: 3000,
-    ActionType.DISCARD: 4000,
-    ActionType.BUILD_ROAD: 5000,
-    ActionType.BUILD_SETTLEMENT: 6000,
-    ActionType.BUILD_CITY: 7000,
-    ActionType.BUY_DEVELOPMENT_CARD: 8000,
-    ActionType.PLAY_KNIGHT_CARD: 9000,
-    ActionType.PLAY_YEAR_OF_PLENTY: 10000,
-    ActionType.PLAY_MONOPOLY: 11000,
-    ActionType.PLAY_ROAD_BUILDING: 12000,
-    ActionType.MARITIME_TRADE: 13000
+    ActionType.GAME_FINISHED: 0, # only 1 possible value
+    ActionType.ROLL: 1, # only 1 possible value
+    ActionType.END_TURN: 2, # only 1 possible value
+    ActionType.MOVE_ROBBER: 3, # 19 x 4 possible values
+    ActionType.DISCARD: 4, # only 1 possible value
+    ActionType.BUILD_ROAD: 5,
+    ActionType.BUILD_SETTLEMENT: 6,
+    ActionType.BUILD_CITY: 7,
+    ActionType.BUY_DEVELOPMENT_CARD: 8,
+    ActionType.PLAY_KNIGHT_CARD: 9,
+    ActionType.PLAY_YEAR_OF_PLENTY: 10,
+    ActionType.PLAY_MONOPOLY: 11,
+    ActionType.PLAY_ROAD_BUILDING: 12,
+    ActionType.MARITIME_TRADE: 13
 }
 
 @dataclass
@@ -99,6 +99,9 @@ class Action:
         base = ACTION_TYPE_BASE.get(self.action)
         if base is None:
             raise ValueError(f"Unhandled ActionType: {self.action}")
+        
+        # TESTING ENUMERATING ACTIONS WITHOUT PARAMETERS
+        return [base]
 
         # Actions without parameters
         if self.action in {

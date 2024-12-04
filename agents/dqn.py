@@ -51,18 +51,21 @@ class DQNTrainer:
                  input_size: int,
                  output_size: int,
                  gamma=0.99,
-                 learning_rate=1e-3,
+                 learning_rate=1e-4,
                  batch_size=512,
                  buffer_size=100000,
-                 target_update_freq=512*10,
-                 num_epochs=1000,
+                 target_update_freq=5000,
+                 num_epochs=6,
                  max_steps_per_episode=200):
 
         # Device
+        torch.cuda.empty_cache()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"PyTorch using device: {self.device}")
         self.time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.writer = SummaryWriter(log_dir=f"./runs/experiment_{self.time}")
+
+        print(f"Input Size: {input_size}, Output Size: {output_size}")
 
         # Hyperparameters
         self.input_size = input_size
@@ -74,7 +77,7 @@ class DQNTrainer:
         self.target_update_freq = target_update_freq
         self.num_epochs = num_epochs
         self.max_steps_per_episode = max_steps_per_episode
-        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}.pth"
+        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}.pth"
 
         # Initialize Networks and Optimizer
         self.policy_net = DQN(input_size, output_size)
