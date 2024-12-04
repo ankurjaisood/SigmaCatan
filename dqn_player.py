@@ -1,9 +1,16 @@
 import random
-
+import os
+import sys
 from catanatron import Player
 from catanatron_experimental.cli.cli_players import register_player
 from catanatron.models.actions import ActionType
 
+# Enable local SigmaCatan code modules to be imported
+module_path = os.path.abspath(os.path.dirname(__file__))  # Adjust as needed
+if module_path not in sys.path:
+    sys.path.append(module_path)
+
+from interfaces.catanatron_interface import CatanatronParser
 
 WEIGHTS_BY_ACTION_TYPE = {
     ActionType.BUILD_CITY: 10000,
