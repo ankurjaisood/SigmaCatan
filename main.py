@@ -158,9 +158,7 @@ def main():
     args = parser.parse_args()
 
     # Process the directory
-    if os.path.isdir(args.dataset_dir):
-        game_iterator = GameIterator(args.dataset_dir, args.static_board)
-        
+    if os.path.isdir(args.dataset_dir):        
         if args.static_board:
             input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD
 
@@ -169,6 +167,7 @@ def main():
 
         output_tensor_expected_length = OUTPUT_TENSOR_EXPECTED_LENGTH
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
+        game_iterator = GameIterator(args.dataset_dir, args.static_board)
         dqn_trainer.train(game_iterator)
 
     else:

@@ -11,7 +11,7 @@ from datetime import datetime
 VERBOSE_LOGGING = False
 
 class DQN(nn.Module):
-    def __init__(self, input_tensor_size: int, output_action_space_size: int, hidden_layer_size=512):
+    def __init__(self, input_tensor_size: int, output_action_space_size: int, hidden_layer_size: int = 512):
         super(DQN, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(input_tensor_size, hidden_layer_size),
@@ -64,8 +64,9 @@ class DQNTrainer:
         print(f"PyTorch using device: {self.device}")
         self.time = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.writer = SummaryWriter(log_dir=f"./runs/experiment_{self.time}")
+        self.hidden_size = (input_size + output_size) // 2
 
-        print(f"Input Size: {input_size}, Output Size: {output_size}")
+        print(f"Input Size: {input_size}, Output Size: {output_size}, Hidden Size: {self.hidden_size}")
 
         # Hyperparameters
         self.input_size = input_size
@@ -77,11 +78,11 @@ class DQNTrainer:
         self.target_update_freq = target_update_freq
         self.num_epochs = num_epochs
         self.max_steps_per_episode = max_steps_per_episode
-        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}.pth"
+        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}:{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}.pth"
 
         # Initialize Networks and Optimizer
-        self.policy_net = DQN(input_size, output_size)
-        self.target_net = DQN(input_size, output_size)
+        self.policy_net = DQN(input_size, output_size, self.hidden_size)
+        self.target_net = DQN(input_size, output_size, self.hidden_size)
         self.policy_net.to(self.device)
         self.target_net.to(self.device)
 
