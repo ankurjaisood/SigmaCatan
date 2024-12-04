@@ -5,6 +5,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 from collections import deque
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 VERBOSE_LOGGING = False
 
@@ -59,6 +61,8 @@ class DQNTrainer:
         # Device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"PyTorch using device: {self.device}")
+        self.time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.writer = SummaryWriter(log_dir=f"./runs/experiment_{self.time}")
 
         # Hyperparameters
         self.input_size = input_size
@@ -70,7 +74,7 @@ class DQNTrainer:
         self.target_update_freq = target_update_freq
         self.num_epochs = num_epochs
         self.max_steps_per_episode = max_steps_per_episode
-        self.model_save_path = f"./model-{input_size}x{output_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}.pth"
+        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}.pth"
 
         # Initialize Networks and Optimizer
         self.policy_net = DQN(input_size, output_size)
@@ -112,7 +116,7 @@ class DQNTrainer:
 
                 # Train the policy network if buffer is full
                 if len(self.replay_buffer) >= self.batch_size:
-                    self.optimize_model()
+                    self.optimize_model(steps)
 
                 # Update target network periodically
                 if steps % self.target_update_freq == 0:
@@ -124,7 +128,7 @@ class DQNTrainer:
         # Save the trained model
         self.save_model()
 
-    def optimize_model(self):
+    def optimize_model(self, step_number: int):
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
         states, actions, rewards, next_states, dones = (
             states.to(self.device),
@@ -153,6 +157,7 @@ class DQNTrainer:
 
         # Loss
         loss = nn.MSELoss()(q_values, target_q_values)
+        self.writer.add_scalar("Loss", loss, step_number)  # Log the loss
 
         # Backprop
         self.optimizer.zero_grad()
