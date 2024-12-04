@@ -7,7 +7,7 @@ class PlayerID(IntEnum):
     WHITE = auto()
     BLUE = auto()
     RED = auto()
-    
+
     @staticmethod
     def string_to_enum(s : str):
         return PlayerID[s.upper()]
@@ -57,7 +57,7 @@ class Road:
 
     def flatten(self):
         return [self.edge_id[0], self.edge_id[1], self.player_owner.value]
-    
+
     def __hash__(self):
         return hash((self.edge_id, self.player_owner))
 

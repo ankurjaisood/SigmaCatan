@@ -12,12 +12,12 @@ class DQN(nn.Module):
     def __init__(self, input_tensor_size: int, output_action_space_size: int, hidden_layer_size=512):
         super(DQN, self).__init__()
         self.network = nn.Sequential(
-            nn.Linear(input_tensor_size, hidden_layer_size),  
-            nn.ReLU(),                  
-            nn.Linear(hidden_layer_size, hidden_layer_size),        
-            nn.ReLU(),                  
-            nn.Linear(hidden_layer_size, hidden_layer_size),        
-            nn.ReLU(),                  
+            nn.Linear(input_tensor_size, hidden_layer_size),
+            nn.ReLU(),
+            nn.Linear(hidden_layer_size, hidden_layer_size),
+            nn.ReLU(),
+            nn.Linear(hidden_layer_size, hidden_layer_size),
+            nn.ReLU(),
             nn.Linear(hidden_layer_size, output_action_space_size)
         )
 
@@ -36,14 +36,14 @@ class ReplayBuffer:
         batch = [self.buffer[idx] for idx in indices]
         states, actions, rewards, next_states, dones = zip(*batch)
         return (torch.tensor(states, dtype=torch.float32),
-                torch.tensor(actions, dtype=torch.float32),
+                torch.tensor(actions, dtype=torch.long),
                 torch.tensor(rewards, dtype=torch.float32),
                 torch.tensor(next_states, dtype=torch.float32),
                 torch.tensor(dones, dtype=torch.float32))
 
     def __len__(self):
         return len(self.buffer)
-    
+
 class DQNTrainer:
     def __init__(self,
                  input_size: int,
@@ -55,11 +55,11 @@ class DQNTrainer:
                  target_update_freq=1000,
                  num_epochs=1000,
                  max_steps_per_episode=200):
-        
+
         # Device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"PyTorch using device: {self.device}")
-        
+
         # Hyperparameters
         self.input_size = input_size
         self.output_size = output_size
@@ -98,7 +98,7 @@ class DQNTrainer:
                     print(f"Reward: {reward}")
                     print(f"Next State Tensor Size: {len(next_state)}")
                     print(f"Game Finished Tensor: {done}")
-                    
+
                     #print(f"Input State Tensor:\n {state}")
                     #print(f"Input Action Tensor:\n {action}")
                     #print(f"Next State Tensor:\n {next_state}")
@@ -106,6 +106,7 @@ class DQNTrainer:
 
                 steps += 1
                 total_reward += reward[0]
+                # print (f"Total Reward: {total_reward}")
 
                 self.replay_buffer.add(state, action, reward, next_state, done)
 
@@ -125,10 +126,30 @@ class DQNTrainer:
 
     def optimize_model(self):
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
-        states, actions, rewards, next_states, dones = states.to(self.device), actions.to(self.device), rewards.to(self.device), next_states.to(self.device), dones.to(self.device)
+        states, actions, rewards, next_states, dones = (
+            states.to(self.device),
+            actions.to(self.device),
+            rewards.to(self.device),
+            next_states.to(self.device),
+            dones.to(self.device)
+        )
+
+        # Debugging: Print tensor shapes
+        # print(f"States shape: {states.shape}")          # Expected: [batch_size, 3175]
+        # print(f"Actions shape: {actions.shape}")        # Expected: [batch_size]
+        # print(f"Rewards shape: {rewards.shape}")        # Expected: [batch_size]
+        # print(f"Next States shape: {next_states.shape}")# Expected: [batch_size, 3175]
+        # print(f"Dones shape: {dones.shape}")            # Expected: [batch_size]
 
         # Q(s, a)
-        q_values = self.policy_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        actions_unsqueeze = actions.unsqueeze(1)
+        #print(f"Actions unsqueeze shape: {actions_unsqueeze.shape}")    # Expected: [batch_size, 1]
+
+        q_values = self.policy_net(states).gather(1, actions)
+        #print(f"Q-Values shape: {q_values.shape}")    # Expected: [batch_size, 1]
+
+        q_values_squeeze = q_values.squeeze(1)
+        #print(f"Q-Values squeeze shape: {q_values_squeeze.shape}")    # Expected: [batch_size]
 
         with torch.no_grad():
             max_next_q_values = self.target_net(next_states).max(1)[0]
@@ -141,6 +162,7 @@ class DQNTrainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
 
     def save_model(self):
         torch.save(self.policy_net.state_dict(), self.model_save_path)

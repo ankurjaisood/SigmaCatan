@@ -14,7 +14,7 @@ class HexDirection(IntEnum):
     SOUTHWEST = auto()
     WEST = auto()
     NORTHWEST = auto()
-    
+
     @staticmethod
     def string_to_enum(s : str):
         return HexDirection[s.upper()]
@@ -150,10 +150,12 @@ class DynamicBoardState:
         assert len(self.available_actions) <= self.MAX_NUM_AVAILABLE_ACTIONS, "Available actions greater than supported max!"
         for action in self.available_actions:
             flattened.extend(action.flatten())
+
         # Pad to MAX_NUM_AVAILABLE_ACTIONS
-        flattened.extend(
-            [-1] * ((self.MAX_NUM_AVAILABLE_ACTIONS * (Action.MAX_ACTION_PARAMETER_LENGTH + 2)) - 
-                    len(self.available_actions) * (Action.MAX_ACTION_PARAMETER_LENGTH + 2))
-        )
+        # flattened.extend(
+        #     [-1] * ((self.MAX_NUM_AVAILABLE_ACTIONS * (Action.MAX_ACTION_PARAMETER_LENGTH + 2)) -
+        #             len(self.available_actions) * (Action.MAX_ACTION_PARAMETER_LENGTH + 2))
+        # )
+        flattened.extend([-1] * ((self.MAX_NUM_AVAILABLE_ACTIONS) - len(self.available_actions)))
 
         return flattened
