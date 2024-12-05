@@ -34,12 +34,17 @@ FLATTENED_ACTION_LENGTH = 1
 class GameIterator:
     def __init__(self,
                  dir_path: str,
-                 static_board: bool) -> None:
+                 static_board: bool,
+                 disable_dynamic_board_state: bool) -> None:
         self.static_board = static_board
+        self.disable_dynamic_board_state = disable_dynamic_board_state
         self.parser = CatanatronParser()
         self.games_paths = self.process_directory_iterator(dir_path)
         self.games = self.get_games()
         random.shuffle(self.games)  # Shuffle the games to prevent overfitting
+        self.expected_state_tensor_size = (FLATTENED_STATIC_BOARD_STATE_LENGTH if not self.static_board else 0) + \
+                                          (EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH) + \
+                                          (FLATTENED_DYNAMIC_BOARD_STATE_LENGTH if not self.disable_dynamic_board_state else 0)
 
     def process_directory_iterator(self, base_dir: str) -> List[Tuple[str, str]]:
         with ThreadPoolExecutor() as executor:
@@ -75,11 +80,7 @@ class GameIterator:
                             dynamic_board_state: DynamicBoardState,
                             player_states: List[PlayerState]):
         # Preallocate the state tensor with known sizes to improve performance
-        state_tensor_size = (FLATTENED_STATIC_BOARD_STATE_LENGTH if not self.static_board else 0) + \
-                            EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH + \
-                            FLATTENED_DYNAMIC_BOARD_STATE_LENGTH
-
-        state_tensor = np.zeros(state_tensor_size, dtype=np.float32)
+        state_tensor = np.zeros(self.expected_state_tensor_size, dtype=np.float32)
         idx = 0
 
         if not self.static_board:
@@ -92,11 +93,14 @@ class GameIterator:
             state_tensor[idx:idx + len(player_data)] = player_data
             idx += len(player_data)
 
-        dynamic_data = dynamic_board_state.flatten()
-        state_tensor[idx:idx + len(dynamic_data)] = dynamic_data
+        if not self.disable_dynamic_board_state:
+            dynamic_data = dynamic_board_state.flatten()
+            state_tensor[idx:idx + len(dynamic_data)] = dynamic_data
 
         if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
             expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH if not self.static_board else INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD
+            if self.disable_dynamic_board_state:
+                expected_length -= FLATTENED_DYNAMIC_BOARD_STATE_LENGTH
             assert state_tensor.shape[0] == expected_length, f"State tensor unexpected size! {state_tensor.shape[0]}"
         return state_tensor
 
@@ -113,11 +117,13 @@ class GameIterator:
                     assert np.array_equal(static_board_check_state.flatten(), static_board_state.flatten()), \
                         f"Static board state is enabled but board state is not constant between games!"
 
+            num_skipped_steps = 0
             for index, step in enumerate(game.game_steps):
                 player_states, dynamic_board_state, action_taken = step.step
 
                 # Skip this turn if it's not the winning player's turn
                 if game.winner != dynamic_board_state.current_player:
+                    num_skipped_steps += 1
                     if VERBOSE_LOGGING: 
                         print(f"Skipping step {index} because it is not the winning player's turn.")
                     continue
@@ -135,13 +141,13 @@ class GameIterator:
                     next_player_states, next_dynamic_board_state, _ = game.game_steps[index + 1].step
                     next_state_tensor = self.create_state_tensor(static_board_state, next_dynamic_board_state, next_player_states)
                 else:
-                    next_state_tensor = np.full((INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD if self.static_board else INPUT_STATE_TENSOR_EXPECTED_LENGTH), -1, dtype=np.float32)
+                    next_state_tensor = np.full(self.expected_state_tensor_size, -1, dtype=np.float32)
 
                 game_finished_tensor = [0] if next_state_tensor is not None else [1]
                 yield input_state_tensor, input_action_tensor, [reward], next_state_tensor, game_finished_tensor
 
             # Print statement after iterating through an entire game
-            print(f"Finished iterating game {game_index + 1} out of {len(self.games)}")
+            print(f"Finished iterating game {game_index + 1} out of {len(self.games)}. Number of total steps: {index}. Number of steps as winning player {game.winner.value}: {index - num_skipped_steps}")
 
     def __iter__(self):
         return self.iterate_game()
@@ -151,6 +157,7 @@ def main():
     parser = argparse.ArgumentParser(description="Parse Catan board.json and data.json files in subdirectories within a dataset.")
     parser.add_argument("dataset_dir", type=str, help="Path to the base directory containing training dataset.")
     parser.add_argument("--static_board", action="store_true", help="Whether to expect a static board for all the games.")
+    parser.add_argument("--disable_dynamic_board_state", action="store_true", help="Whether to include the dynamic board state.")
 
     args = parser.parse_args()
 
@@ -158,13 +165,15 @@ def main():
     if os.path.isdir(args.dataset_dir):        
         if args.static_board:
             input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD
-
         else:
             input_tensor_expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH
+        
+        if args.disable_dynamic_board_state:
+            input_tensor_expected_length -= FLATTENED_DYNAMIC_BOARD_STATE_LENGTH
 
         output_tensor_expected_length = OUTPUT_TENSOR_EXPECTED_LENGTH
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
-        game_iterator = GameIterator(args.dataset_dir, args.static_board)
+        game_iterator = GameIterator(args.dataset_dir, args.static_board, args.disable_dynamic_board_state)
         
         start_time = time.time()
         dqn_trainer.train(game_iterator)
