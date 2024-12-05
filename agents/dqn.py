@@ -34,14 +34,24 @@ class ReplayBuffer:
         self.buffer.append((state, action, reward, next_state, done))
 
     def sample(self, batch_size):
-        indices = random.sample(range(len(self.buffer)), batch_size)
-        batch = [self.buffer[idx] for idx in indices]
+        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        batch = np.array([self.buffer[idx] for idx in indices], dtype=object)
+        
         states, actions, rewards, next_states, dones = zip(*batch)
-        return (torch.tensor(states, dtype=torch.float32),
-                torch.tensor(actions, dtype=torch.long),
-                torch.tensor(rewards, dtype=torch.float32),
-                torch.tensor(next_states, dtype=torch.float32),
-                torch.tensor(dones, dtype=torch.float32))
+
+        # Vectorized conversion to numpy arrays
+        states = np.vstack(states).astype(np.float32)
+        actions = np.array(actions, dtype=np.int64)
+        rewards = np.array(rewards, dtype=np.float32)
+        next_states = np.vstack(next_states).astype(np.float32)
+        dones = np.array(dones, dtype=np.float32)
+
+        # Convert numpy arrays into PyTorch tensors
+        return (torch.from_numpy(states),
+                torch.from_numpy(actions),
+                torch.from_numpy(rewards),
+                torch.from_numpy(next_states),
+                torch.from_numpy(dones))
 
     def __len__(self):
         return len(self.buffer)
