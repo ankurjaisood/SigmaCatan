@@ -12,7 +12,6 @@ from environment.game import CatanGame, GameStep
 # DEBUG FLAGS
 VERBOSE_LOGGING = False
 
-
 class CatanatronParser:
     @staticmethod
     def get_action_parameters(action_type: ActionType, static_board_state: StaticBoardState, params: Optional[dict]) -> List[int]:
@@ -152,7 +151,7 @@ class CatanatronParser:
         )
 
     @staticmethod
-    def parse_data_json(data_path, static_board_state: StaticBoardState) -> CatanGame:
+    def parse_data_json(data_path, static_board_state: StaticBoardState, reorder_players: bool) -> CatanGame:
         with open(data_path, 'r') as f:
             json_data = json.load(f)
 
@@ -170,7 +169,7 @@ class CatanatronParser:
             current_player_id = PlayerID.string_to_enum(current_player)
             if VERBOSE_LOGGING: print(f"Current player: {current_player}:{current_player_id}")
 
-                        # Get action that was taken by player
+            # Get action that was taken by player
             action_taken = step.get('action')
             action_taken_by_player = (
                 Action(
@@ -219,6 +218,23 @@ class CatanatronParser:
                 )
                 for player_id, player_color in enumerate(game_state['players'])
             ]
+
+            if reorder_players:
+                reordered_player_states_list = (
+                    [player_states_list[game_state['players'].index(winner)]]
+                    + [state for i, state in enumerate(player_states_list) if i != game_state['players'].index(winner)]
+                )
+                assert reordered_player_states_list[0].PLAYER_ID == winner_id, f"ASSERT ERROR: Winning player {winner}:{winner_id} is not the first in the player state array!"
+                
+                # Replace original players state list with re-ordered one
+                player_states_list = reordered_player_states_list
+
+                if VERBOSE_LOGGING:
+                    print(f"{winner}: {winner_id}")
+                    print(f"Data: {[(player_id, player_color) for player_id, player_color in enumerate(game_state['players'])]}")
+                    print(f"Before: {[state.PLAYER_ID for state in player_states_list]}")
+                    print(f"Parsed: {[state.PLAYER_ID for state in reordered_player_states_list]}")
+                    print("\n")
 
             # Parse dynamic board state
             board_state = game_state['board']

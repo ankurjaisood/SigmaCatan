@@ -35,9 +35,11 @@ class GameIterator:
     def __init__(self,
                  dir_path: str,
                  static_board: bool,
-                 disable_dynamic_board_state: bool) -> None:
+                 disable_dynamic_board_state: bool,
+                 reorder_player_states: bool) -> None:
         self.static_board = static_board
         self.disable_dynamic_board_state = disable_dynamic_board_state
+        self.reorder_player_states = reorder_player_states
         self.parser = CatanatronParser()
         self.games_paths = self.process_directory_iterator(dir_path)
         self.games = self.get_games()
@@ -60,7 +62,7 @@ class GameIterator:
 
     def parse_data(self, board_path, data_path) -> Tuple[StaticBoardState, CatanGame]:
         static_board_state = self.parser.parse_board_json(board_path)
-        game = self.parser.parse_data_json(data_path, static_board_state)
+        game = self.parser.parse_data_json(data_path, static_board_state, self.reorder_player_states)
         return (static_board_state, game)
 
     def get_games(self) -> List[Tuple[StaticBoardState, CatanGame]]:
@@ -158,6 +160,7 @@ def main():
     parser.add_argument("dataset_dir", type=str, help="Path to the base directory containing training dataset.")
     parser.add_argument("--static_board", action="store_true", help="Whether to expect a static board for all the games.")
     parser.add_argument("--disable_dynamic_board_state", action="store_true", help="Whether to include the dynamic board state.")
+    parser.add_argument("--reorder_players", action="store_true", help="Whether to reorder players such that the winner is always index 0 in the players array.")
 
     args = parser.parse_args()
 
@@ -173,7 +176,7 @@ def main():
 
         output_tensor_expected_length = OUTPUT_TENSOR_EXPECTED_LENGTH
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
-        game_iterator = GameIterator(args.dataset_dir, args.static_board, args.disable_dynamic_board_state)
+        game_iterator = GameIterator(args.dataset_dir, args.static_board, args.disable_dynamic_board_state, args.reorder_players)
         
         start_time = time.time()
         dqn_trainer.train(game_iterator)
