@@ -3,10 +3,10 @@ from enum import IntEnum, auto
 from typing import Tuple
 
 class PlayerID(IntEnum):
+    RED = auto()
+    BLUE = auto()
     ORANGE = auto()
     WHITE = auto()
-    BLUE = auto()
-    RED = auto()
 
     @staticmethod
     def string_to_enum(s : str):
