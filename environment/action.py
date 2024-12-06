@@ -5,9 +5,6 @@ from typing import List
 from .common import PlayerID, ResourceType
 
 class ActionType(IntEnum):
-    # Game over
-    GAME_FINISHED = auto()
-
     # Discrete Actions
     ROLL = auto()  # value is None
     END_TURN = auto()  # value is None
@@ -47,20 +44,19 @@ class ActionType(IntEnum):
         return ActionType[s.upper()]
 
 ACTION_TYPE_BASE = {
-    ActionType.GAME_FINISHED: 0, # only 1 possible value
-    ActionType.ROLL: 1, # only 1 possible value
-    ActionType.END_TURN: 2, # only 1 possible value
-    ActionType.MOVE_ROBBER: 3, # 19 x 4 possible values
-    ActionType.DISCARD: 4, # only 1 possible value
-    ActionType.BUILD_ROAD: 5,
-    ActionType.BUILD_SETTLEMENT: 6,
-    ActionType.BUILD_CITY: 7,
-    ActionType.BUY_DEVELOPMENT_CARD: 8,
-    ActionType.PLAY_KNIGHT_CARD: 9,
-    ActionType.PLAY_YEAR_OF_PLENTY: 10,
-    ActionType.PLAY_MONOPOLY: 11,
-    ActionType.PLAY_ROAD_BUILDING: 12,
-    ActionType.MARITIME_TRADE: 13
+    ActionType.ROLL: 0, # only 1 possible value
+    ActionType.END_TURN: 1, # only 1 possible value
+    ActionType.MOVE_ROBBER: 2, # 19 x 4 possible values
+    ActionType.DISCARD: 3, # only 1 possible value
+    ActionType.BUILD_ROAD: 4,
+    ActionType.BUILD_SETTLEMENT: 5,
+    ActionType.BUILD_CITY: 6,
+    ActionType.BUY_DEVELOPMENT_CARD: 7,
+    ActionType.PLAY_KNIGHT_CARD: 8,
+    ActionType.PLAY_YEAR_OF_PLENTY: 9,
+    ActionType.PLAY_MONOPOLY: 10,
+    ActionType.PLAY_ROAD_BUILDING: 11,
+    ActionType.MARITIME_TRADE: 12
 }
 
 @dataclass
@@ -105,7 +101,6 @@ class Action:
 
         # Actions without parameters
         if self.action in {
-            ActionType.GAME_FINISHED,
             ActionType.ROLL,
             ActionType.END_TURN,
             ActionType.BUY_DEVELOPMENT_CARD,

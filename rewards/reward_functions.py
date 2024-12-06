@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, List
 from environment import PlayerState, PlayerID, ActionType, Action
 
 class RewardFunction(ABC):
@@ -10,10 +10,14 @@ class RewardFunction(ABC):
     def __init__(self,
                  player: PlayerID) -> None:
         self.player = player
+
+    @staticmethod
+    def is_action_allowed(action: Action, allowable_actions: List[Action]) -> bool:
+        assert action in allowable_actions, f"Reward function selected action {action} which is not allowable: {allowable_actions}"
         
     @abstractmethod
     #def calculate_reward(self, player_state: Any, action: Any, next_state: Any) -> float:
-    def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
+    def calculate_reward(self, player_state: PlayerState, action: Action, allowable_actions: List[Action]) -> float:
         """
         Calculate the reward for taking an action in a given state
         and transitioning to a next state. FOR NOW ONLY USES PLAYER STATE.
@@ -26,18 +30,15 @@ class RewardFunction(ABC):
         """
         assert self.player == player_state.PLAYER_ID, f"Reward function: player ID {self.player} doesnt match ID of player state passed: {player_state.PLAYER_ID}"
         assert self.player == action.player_id, f"Reward function: player ID {self.player} doesnt match ID of action passed: {action.player_id}"
+        RewardFunction.is_action_allowed(action, allowable_actions)
 
 class VPRewardFunction(RewardFunction):
     def __init__(self,
                  player: PlayerID):
         super().__init__(player)
 
-    def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
-        super().calculate_reward(player_state, action)
-
-        # Give 0 reward if we attempt to select END_GAME while not having >= 10 VP
-        if(action.action == ActionType.GAME_FINISHED and player_state.ACTUAL_VICTORY_POINTS < 10):
-            return 0.0
+    def calculate_reward(self, player_state: PlayerState, action: Action, allowable_actions: List[Action]) -> float:
+        super().calculate_reward(player_state, action, allowable_actions)
 
         return player_state.ACTUAL_VICTORY_POINTS
     
@@ -55,13 +56,9 @@ class BasicRewardFunction(RewardFunction):
         self.w_knight = w_knight
         self.w_handSizePenalty = w_handSizePenalty
 
-    def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
-        super().calculate_reward(player_state, action)
-
-        # Give 0 reward if we attempt to select END_GAME while not having >= 10 VP
-        if(action.action == ActionType.GAME_FINISHED and player_state.ACTUAL_VICTORY_POINTS < 10):
-            return 0.0
-
+    def calculate_reward(self, player_state: PlayerState, action: Action, allowable_actions: List[Action]) -> float:
+        super().calculate_reward(player_state, action, allowable_actions)
+        
         reward = 0.0
 
         # Reward, victory points

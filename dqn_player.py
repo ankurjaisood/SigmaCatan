@@ -130,11 +130,6 @@ class DQNPlayer(Player):
         best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
         best_action = ActionType(best_action_idx)
 
-        if best_action == ActionType.GAME_FINISHED:
-            print(f"Best action predicted was {ActionType.GAME_FINISHED.name}")
-            best_action_idx = torch.argmax(output_tensor[1:]).item()
-            best_action = ActionType(best_action_idx)
-
         if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
 
         allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]

@@ -27,7 +27,7 @@ FLATTENED_DYNAMIC_BOARD_STATE_LENGTH = 486
 
 INPUT_STATE_TENSOR_EXPECTED_LENGTH = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH
 INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH
-OUTPUT_TENSOR_EXPECTED_LENGTH = 14
+OUTPUT_TENSOR_EXPECTED_LENGTH = 13
 
 FLATTENED_ACTION_LENGTH = 1
 
@@ -130,7 +130,7 @@ class GameIterator:
                         print(f"Skipping step {index} because it is not the winning player's turn.")
                     continue
 
-                reward = reward_function.calculate_reward(step.get_player_state_by_ID(game.winner), action_taken)
+                reward = reward_function.calculate_reward(step.get_player_state_by_ID(game.winner), action_taken, dynamic_board_state.available_actions)
                 input_state_tensor = self.create_state_tensor(
                     static_board_state,
                     dynamic_board_state,
