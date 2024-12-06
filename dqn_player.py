@@ -16,7 +16,7 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 
 import json
-import np
+import numpy as np
 from catanatron_experimental.cli.accumulators import SigmaCatanDataAccumulator
 from interfaces.catanatron_interface import CatanatronParser
 from environment.player_state import PlayerState, PlayerID
