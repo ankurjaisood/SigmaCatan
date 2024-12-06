@@ -236,7 +236,6 @@ class CatanatronParser:
     @staticmethod
     def parse_data(raw_json_data, static_board_state: StaticBoardState, reorder_players: bool) -> Tuple[List[PlayerState], DynamicBoardState, PlayerID]:
         json_data = json.loads(raw_json_data)
-        print(json_data)
         return CatanatronParser.__parse_game_step(json_data, static_board_state)
 
     @staticmethod
