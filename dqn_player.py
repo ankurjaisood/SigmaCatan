@@ -30,11 +30,11 @@ from main import INPUT_STATE_TENSOR_EXPECTED_LENGTH, \
                  FLATTENED_STATIC_BOARD_STATE_LENGTH, \
                  EXPECTED_NUMBER_OF_PLAYERS, \
                  FLATTENED_PLAYER_STATE_LENGTH
-
+from collections import defaultdict
 
 VERBOSE_LOGGING = False
 ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
-MODEL_PATH = "./models/static_board/model-20241205_201455-590x13:301-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_10000.pth"
+MODEL_PATH = "./models/static_board/model-20241205_234834-590x13-hidden_301-gamma_0.9-lr_0.0001-bs_512-epochs_50-updatefreq_10000-loss_huber-tau_0.001.pth"
 MASK_INVALID_ACTIONS = True
 
 @register_player("DQN")
@@ -61,10 +61,13 @@ class DQNPlayer(Player):
         self.step_counter = 0
         self.invalid_step_counter = 0
 
-    def __del__(self):
-        pass
-        #print(f"Invalid actions/total actions: {self.invalid_step_counter}/{self.step_counter}")
+        self.action_chosen_by_agent_dict = defaultdict(int)
+        self.action_chosen_by_random_dict = defaultdict(int)
 
+    def __del__(self):
+        print(f"Invalid actions/total actions: {self.invalid_step_counter}/{self.step_counter}")
+        print(f"Actions chosen by agent:\n {self.action_chosen_by_agent_dict}")
+        print(f"Actions chosen by random:\n {self.action_chosen_by_random_dict}")
 
     def _load_model(self, model_path):
         # Replace DQNModel with your actual model class
@@ -139,16 +142,16 @@ class DQNPlayer(Player):
             best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
             best_action = ActionType(best_action_idx)
 
-            if VERBOSE_LOGGING:
-                print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
-                print(f"Playable Actions: {playable_actions}")
-                print(masked_q_values, output_tensor)
+            if best_action != ActionType.END_TURN:
+                if VERBOSE_LOGGING:
+                    print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
+                    print(masked_q_values, output_tensor)
 
-            # Find the matching playable Action object
-            for action in playable_actions:
-                if ActionType.string_to_enum(action.action_type.value) == best_action:
-                    action_chosen = action
-                    print(f"ACTION CHOSEN (Masked Model): {action_chosen}")
+                selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
+                if VERBOSE_LOGGING: print(selected_allowable_actions)
+                selected_action = random.choice(selected_allowable_actions)
+                action_chosen = playable_actions[selected_action[0]]
+                print(f"ACTION CHOSEN (Masked Model): {action_chosen} out of {len(selected_allowable_actions)}")
         else:
             # Argmax agross all actions, only choose model action if it is valid
             best_action_idx = torch.argmax(output_tensor).item()
@@ -156,17 +159,20 @@ class DQNPlayer(Player):
             best_action = ActionType(best_action_idx)
 
             if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
-
-            allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
-            if(best_action in allowable_action_list and best_action != ActionType.END_TURN):
+            if best_action in allowable_action_list:
                 selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
                 if VERBOSE_LOGGING: print(selected_allowable_actions)
                 selected_action = random.choice(selected_allowable_actions)
                 action_chosen = playable_actions[selected_action[0]]
-                print(f"ACTION CHOSEN (Model): {action_chosen}")
+                print(f"ACTION CHOSEN (Model): {action_chosen} out of {len(selected_allowable_actions)}")
 
+        # FALLBACK TO RANDOM ACTION, INCREMENT COUNTERS
         if action_chosen is None:
             self.invalid_step_counter += 1
             action_chosen = random.choice(playable_actions)
             print(f"ACTION CHOSEN (Random): {action_chosen}")
+            self.action_chosen_by_random_dict[ActionType.string_to_enum(action_chosen.action_type.value)] += 1
+        else:
+            self.action_chosen_by_agent_dict[ActionType.string_to_enum(action_chosen.action_type.value)] += 1
+
         return action_chosen
