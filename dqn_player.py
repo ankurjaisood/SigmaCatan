@@ -34,7 +34,7 @@ from main import INPUT_STATE_TENSOR_EXPECTED_LENGTH, \
 
 VERBOSE_LOGGING = False
 ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
-MODEL_PATH = "./model-20241205_201455-590x13:301-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_10000.pth"
+MODEL_PATH = "./models/static_board/model-20241205_201455-590x13:301-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_10000.pth"
 MASK_INVALID_ACTIONS = True
 
 @register_player("DQN")
