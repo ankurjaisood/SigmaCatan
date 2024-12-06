@@ -48,6 +48,8 @@ OUTPUT_TENSOR_EXPECTED_LENGTH = 14
 
 FLATTENED_ACTION_LENGTH = 1
 
+MODEL_PATH = "./models/static_board/model-20241204_122518-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_2500.pth"
+
 @register_player("DQN")
 class DQNPlayer(Player):
     def __init__(self, color, is_bot=True):
@@ -61,11 +63,20 @@ class DQNPlayer(Player):
         self.expected_state_tensor_size = (FLATTENED_STATIC_BOARD_STATE_LENGTH if not self.static_board else 0) + \
                                     (EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH) + \
                                     (FLATTENED_DYNAMIC_BOARD_STATE_LENGTH if not self.disable_dynamic_board_state else 0)
+        
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_path = "model-20241205_183312-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_10000.pth"
+        print(f"PYTORCH USING DEVICE {self.device}")
+        self.model_path = MODEL_PATH
         self.model = self._load_model(self.model_path)
         self.model.to(self.device)
         self.model.eval()
+
+        self.step_counter = 0
+        self.invalid_step_counter = 0
+
+    def __del__(self):
+        print(f"Invalid actions/total actions: {self.invalid_step_counter}/{self.step_counter}")
+
 
     def _load_model(self, model_path):
         # Replace DQNModel with your actual model class
@@ -112,17 +123,19 @@ class DQNPlayer(Player):
         player_states, dynamic_board_state, player_id = self.parser.parse_data(game_data_json, static_board, False)
 
         input_state_tensor = self.create_state_tensor(static_board, dynamic_board_state, player_states)
-                
-        # TODO: Implement DQN-based decision making using player_state
-        # For example:
-        # action = self.dqn_model.select_action(player_state, playable_actions)
-        # return action
+        output_tensor = self.model.forward(torch.from_numpy(input_state_tensor))
 
-        # Placeholder: Existing random choice logic
-        bloated_actions = []
-        for action in playable_actions:
-            weight = WEIGHTS_BY_ACTION_TYPE.get(action.action_type, 1)
-            bloated_actions.extend([action] * weight
-        )
+        best_action_idx = torch.argmax(output_tensor).item()
+        best_action = ActionType(best_action_idx)
+        if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
 
-        return random.choice(bloated_actions)
+        allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
+        self.step_counter += 1
+        if(best_action in allowable_action_list):
+            selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
+            if VERBOSE_LOGGING: print(selected_allowable_actions)
+            selected_action = random.choice(selected_allowable_actions)
+            return playable_actions[selected_action[0]]
+        else:
+            self.invalid_step_counter += 1
+            return random.choice(playable_actions)
