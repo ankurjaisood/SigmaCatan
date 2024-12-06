@@ -101,8 +101,10 @@ class DQNPlayer(Player):
         static_board = self.parser.parse_board(static_board_json)
 
         game_data_json = json.dumps(game.state, cls=SigmaCatanDataAccumulator.SigmaCatanGameEncoder, indent=self.indent)
-        game_data = self.parser.parse_data(game_data_json, static_board, False)
-        
+        player_states, dynamic_board_state, player_id = self.parser.parse_data(game_data_json, static_board, False)
+
+        input_state_tensor = self.create_state_tensor(static_board, dynamic_board_state, player_states)
+                
         # TODO: Implement DQN-based decision making using player_state
         # For example:
         # action = self.dqn_model.select_action(player_state, playable_actions)
