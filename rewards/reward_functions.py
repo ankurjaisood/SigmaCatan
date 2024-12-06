@@ -34,6 +34,11 @@ class VPRewardFunction(RewardFunction):
 
     def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
         super().calculate_reward(player_state, action)
+
+        # Give 0 reward if we attempt to select END_GAME while not having >= 10 VP
+        if(action.action == ActionType.GAME_FINISHED and player_state.ACTUAL_VICTORY_POINTS < 10):
+            return 0.0
+
         return player_state.ACTUAL_VICTORY_POINTS
     
 class BasicRewardFunction(RewardFunction):
@@ -52,6 +57,10 @@ class BasicRewardFunction(RewardFunction):
 
     def calculate_reward(self, player_state: PlayerState, action: Action) -> float:
         super().calculate_reward(player_state, action)
+
+        # Give 0 reward if we attempt to select END_GAME while not having >= 10 VP
+        if(action.action == ActionType.GAME_FINISHED and player_state.ACTUAL_VICTORY_POINTS < 10):
+            return 0.0
 
         reward = 0.0
 
