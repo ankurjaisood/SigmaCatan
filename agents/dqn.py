@@ -13,6 +13,9 @@ VERBOSE_LOGGING = False
 class DQN(nn.Module):
     def __init__(self, input_tensor_size: int, output_action_space_size: int, hidden_layer_size: int = 512):
         super(DQN, self).__init__()
+        # self.layer1 = nn.Linear(input_tensor_size, hidden_layer_size)
+        # self.layer2 = nn.Linear(hidden_layer_size, hidden_layer_size)
+        # self.layer3 = nn.Linear(hidden_layer_size, output_action_space_size)
         self.network = nn.Sequential(
             nn.Linear(input_tensor_size, hidden_layer_size),
             nn.ReLU(),
@@ -64,7 +67,7 @@ class DQNTrainer:
                  learning_rate=1e-4,
                  batch_size=512,
                  buffer_size=100000,
-                 target_update_freq=2500,
+                 target_update_freq=10000,
                  num_epochs=1,
                  max_steps_per_episode=200):
 

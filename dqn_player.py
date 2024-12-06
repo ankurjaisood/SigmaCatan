@@ -9,6 +9,7 @@ from catanatron import Player
 from catanatron_experimental.cli.cli_players import register_player
 from catanatron.models.actions import ActionType
 from catanatron.state import State
+import torch
 
 # Enable local SigmaCatan code modules to be imported
 module_path = os.path.abspath(os.path.dirname(__file__))  # Adjust as needed
@@ -23,6 +24,8 @@ from environment.player_state import PlayerState, PlayerID
 from environment.action import Action, ActionType
 from environment.board_state import StaticBoardState, DynamicBoardState
 from environment.player_state import PlayerState
+from agents.dqn import DQN
+from main import INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, OUTPUT_TENSOR_EXPECTED_LENGTH
 
 VERBOSE_LOGGING = False
 
@@ -47,10 +50,22 @@ FLATTENED_ACTION_LENGTH = 1
 
 @register_player("DQN")
 class DQNPlayer(Player):
-    """
-    Player that decides at random, but skews distribution
-    to actions that are likely better (cities > settlements > dev cards).
-    """
+
+    def __init__(self, color, is_bot=True):
+        super().__init__(color)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_path = "model-20241204_210439-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_80-updatefreq_2500.pth"
+        self.model = self._load_model(self.model_path)
+        self.model.to(self.device)
+        self.model.eval()
+
+    def _load_model(self, model_path):
+        # Replace DQNModel with your actual model class
+        model = DQN(INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, OUTPUT_TENSOR_EXPECTED_LENGTH)
+        state_dict = torch.load(model_path, map_location=self.device)
+        model.load_state_dict(state_dict)
+        print(f"Loaded model from {model_path}")
+        return model
 
     def __init__(self, 
                  color, 
