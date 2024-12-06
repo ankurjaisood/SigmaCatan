@@ -130,8 +130,8 @@ class DQNPlayer(Player):
         best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
         best_action = ActionType(best_action_idx)
 
-        if best_action == ActionType.END_TURN:
-            print(f"Best action predicted was {ActionType.END_TURN}")
+        if best_action == ActionType.GAME_FINISHED:
+            print(f"Best action predicted was {ActionType.GAME_FINISHED.name}")
             best_action_idx = torch.argmax(output_tensor[1:]).item()
             best_action = ActionType(best_action_idx)
 
