@@ -69,7 +69,9 @@ class DQNTrainer:
                  buffer_size=100000,
                  target_update_freq=10000,
                  num_epochs=1,
-                 max_steps_per_episode=200):
+                 max_steps_per_episode=200,
+                 tau=0.001,
+                 lossname="huber"):
 
         # Device
         torch.cuda.empty_cache()
@@ -91,6 +93,8 @@ class DQNTrainer:
         self.target_update_freq = target_update_freq
         self.num_epochs = num_epochs
         self.max_steps_per_episode = max_steps_per_episode
+        self.tau = tau
+        self.lossname = lossname
         self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}:{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}.pth"
 
         # Initialize Networks and Optimizer
@@ -137,7 +141,14 @@ class DQNTrainer:
 
                 # Update target network periodically
                 if steps % self.target_update_freq == 0:
-                    self.target_net.load_state_dict(self.policy_net.state_dict())
+                    if self.tau is None:
+                        self.target_net.load_state_dict(self.policy_net.state_dict())
+                    
+                    else:
+                        for target_param, policy_param in zip(self.target_net.parameters(), self.policy_net.parameters()):
+                            target_param.data.copy_(self.tau * policy_param.data + (1.0 - self.tau) * target_param.data)
+
+
 
             # Log epoch results
             print(f"Epoch {epoch}, Total Reward: {total_reward}")
@@ -173,7 +184,12 @@ class DQNTrainer:
             # print(f"Target Q-Values shape: {target_q_values.shape}")    # Expected: [batch_size, 1]
 
         # Loss
-        loss = nn.MSELoss()(q_values, target_q_values)
+        if self.lossname.lower() == "mse":
+            loss = nn.MSELoss()(q_values, target_q_values)
+        elif self.lossname.lower() == "huber":
+            loss = nn.SmoothL1Loss()(q_values, target_q_values)
+        else:
+            raise ValueError(f"Invalid loss function name passed: {self.lossname}")
         self.writer.add_scalar("Loss", loss, step_number)  # Log the loss
 
         # Backprop
