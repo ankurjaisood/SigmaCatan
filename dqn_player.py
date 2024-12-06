@@ -31,11 +31,15 @@ from main import INPUT_STATE_TENSOR_EXPECTED_LENGTH, \
                  EXPECTED_NUMBER_OF_PLAYERS, \
                  FLATTENED_PLAYER_STATE_LENGTH
 from collections import defaultdict
+from pprint import pprint
 
 VERBOSE_LOGGING = False
 ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
 MODEL_PATH = "./models/static_board/model-20241205_234834-590x13-hidden_301-gamma_0.9-lr_0.0001-bs_512-epochs_50-updatefreq_10000-loss_huber-tau_0.001.pth"
+
 MASK_INVALID_ACTIONS = True
+DISALLOW_MODEL_END_TURN = True
+PRINT_CHOSEN_ACTIONS = False
 
 @register_player("DQN")
 class DQNPlayer(Player):
@@ -53,6 +57,8 @@ class DQNPlayer(Player):
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"PYTORCH USING DEVICE {self.device}")
+        print(f"Masking Invalid Actions: {MASK_INVALID_ACTIONS}, Disalllow Agent to END_TURN: {DISALLOW_MODEL_END_TURN}")
+
         self.model_path = MODEL_PATH
         self.model = self._load_model(self.model_path)
         self.model.to(self.device)
@@ -66,13 +72,19 @@ class DQNPlayer(Player):
 
     def __del__(self):
         print(f"Invalid actions/total actions: {self.invalid_step_counter}/{self.step_counter}")
-        print(f"Actions chosen by agent:\n {self.action_chosen_by_agent_dict}")
-        print(f"Actions chosen by random:\n {self.action_chosen_by_random_dict}")
+        
+        print(f"Actions chosen by agent: ")
+        pprint(self.action_chosen_by_agent_dict)
+        print("\n")
+
+        print(f"Actions chosen by random: ")
+        pprint(self.action_chosen_by_random_dict)
+        print("\n")
 
     def _load_model(self, model_path):
         # Replace DQNModel with your actual model class
         model = DQN(INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, OUTPUT_TENSOR_EXPECTED_LENGTH, (INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD + OUTPUT_TENSOR_EXPECTED_LENGTH) // 2)
-        state_dict = torch.load(model_path, map_location=self.device)
+        state_dict = torch.load(model_path, map_location=self.device, weights_only=True)
         model.load_state_dict(state_dict)
         print(f"Loaded model from {model_path}")
         return model
@@ -142,17 +154,20 @@ class DQNPlayer(Player):
             best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
             best_action = ActionType(best_action_idx)
 
-            # TODO(jaisood): REMOVE HACK FORBID AGENT FROM ENDING TURN
-            if best_action != ActionType.END_TURN:
-                if VERBOSE_LOGGING:
-                    print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
-                    print(masked_q_values, output_tensor)
+            if VERBOSE_LOGGING:
+                print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
+                print(masked_q_values, output_tensor)
 
-                selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
-                if VERBOSE_LOGGING: print(selected_allowable_actions)
-                selected_action = random.choice(selected_allowable_actions)
+            selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
+            if VERBOSE_LOGGING: print(selected_allowable_actions)
+            selected_action = random.choice(selected_allowable_actions)
+
+            # TODO(jaisood): REMOVE HACK FORBID AGENT FROM ENDING TURN
+            if best_action == ActionType.END_TURN and DISALLOW_MODEL_END_TURN:
+                action_chosen = None
+            else:
                 action_chosen = playable_actions[selected_action[0]]
-                print(f"ACTION CHOSEN (Masked Model): {action_chosen} out of {len(selected_allowable_actions)}")
+                if PRINT_CHOSEN_ACTIONS: print(f"ACTION CHOSEN (Masked Model): {action_chosen} out of {len(selected_allowable_actions)}")
         else:
             # Argmax agross all actions, only choose model action if it is valid
             best_action_idx = torch.argmax(output_tensor).item()
@@ -164,14 +179,18 @@ class DQNPlayer(Player):
                 selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
                 if VERBOSE_LOGGING: print(selected_allowable_actions)
                 selected_action = random.choice(selected_allowable_actions)
-                action_chosen = playable_actions[selected_action[0]]
-                print(f"ACTION CHOSEN (Model): {action_chosen} out of {len(selected_allowable_actions)}")
+                
+                if best_action == ActionType.END_TURN and DISALLOW_MODEL_END_TURN:
+                    action_chosen = None
+                else:
+                    action_chosen = playable_actions[selected_action[0]]
+                    if PRINT_CHOSEN_ACTIONS: print(f"ACTION CHOSEN (Model): {action_chosen} out of {len(selected_allowable_actions)}")
 
         # FALLBACK TO RANDOM ACTION, INCREMENT COUNTERS
         if action_chosen is None:
             self.invalid_step_counter += 1
             action_chosen = random.choice(playable_actions)
-            print(f"ACTION CHOSEN (Random): {action_chosen}")
+            if PRINT_CHOSEN_ACTIONS: print(f"ACTION CHOSEN (Random): {action_chosen}")
             self.action_chosen_by_random_dict[ActionType.string_to_enum(action_chosen.action_type.value)] += 1
         else:
             self.action_chosen_by_agent_dict[ActionType.string_to_enum(action_chosen.action_type.value)] += 1

@@ -12,7 +12,7 @@ from environment.board_state import StaticBoardState, DynamicBoardState
 from environment.player_state import PlayerState
 from environment.game import CatanGame
 from environment.action import Action
-from rewards.reward_functions import BasicRewardFunction
+from rewards.reward_functions import BasicRewardFunction, VPRewardFunction
 from agents.dqn import DQNTrainer
 
 # DEBUG LOGGING
@@ -36,10 +36,13 @@ class GameIterator:
                  dir_path: str,
                  static_board: bool,
                  disable_dynamic_board_state: bool,
-                 reorder_player_states: bool) -> None:
+                 reorder_player_states: bool,
+                 reward_func_str: str) -> None:
         self.static_board = static_board
         self.disable_dynamic_board_state = disable_dynamic_board_state
-        self.reorder_player_states = reorder_player_states
+        self.reorder_player_states = reorder_player_states        
+        self.reward_func_str = reward_func_str
+
         self.parser = CatanatronParser()
         self.games_paths = self.process_directory_iterator(dir_path)
         self.games = self.get_games()
@@ -110,7 +113,15 @@ class GameIterator:
         static_board_check_state = None
         for game_index, game_data in enumerate(self.games):
             static_board_state, game = game_data
-            reward_function = BasicRewardFunction(game.winner)
+            
+            # select reward function
+            reward_function = None
+            if self.reward_func_str == "VP":
+                reward_function = VPRewardFunction(game.winner)
+            elif self.reward_func_str == "BASIC":
+                reward_function = BasicRewardFunction(game.winner)
+            else:
+                raise ValueError(f"Invalid reward function: {self.reward_func_str}")
 
             if self.static_board:
                 if static_board_check_state is None:
@@ -161,6 +172,7 @@ def main():
     parser.add_argument("--static_board", action="store_true", help="Whether to expect a static board for all the games.")
     parser.add_argument("--disable_dynamic_board_state", action="store_true", help="Whether to include the dynamic board state.")
     parser.add_argument("--reorder_players", action="store_true", help="Whether to reorder players such that the winner is always index 0 in the players array.")
+    parser.add_argument("--reward_func", type=str, required=True, help="Reward function to use. Options: VP, BASIC")
 
     args = parser.parse_args()
 
@@ -176,7 +188,13 @@ def main():
 
         output_tensor_expected_length = OUTPUT_TENSOR_EXPECTED_LENGTH
         dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
-        game_iterator = GameIterator(args.dataset_dir, args.static_board, args.disable_dynamic_board_state, args.reorder_players)
+        game_iterator = GameIterator(
+            args.reward_func,
+            args.dataset_dir, 
+            args.static_board, 
+            args.disable_dynamic_board_state, 
+            args.reorder_players
+        )
         
         start_time = time.time()
         dqn_trainer.train(game_iterator)
