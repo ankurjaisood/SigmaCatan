@@ -285,7 +285,7 @@ class CatanatronParser:
                     parameters=[]
                 )
             )
-
+            if action_taken is not None: assert action_taken_by_player in dynamic_board_state.available_actions, f"Action: {action_taken} -> {action_taken_by_player} not in {dynamic_board_state.available_actions}: {data_path}"
 
             game_steps.append(GameStep(step=(player_states_list, dynamic_board_state, action_taken_by_player)))
 

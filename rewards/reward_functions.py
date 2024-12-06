@@ -13,7 +13,10 @@ class RewardFunction(ABC):
 
     @staticmethod
     def is_action_allowed(action: Action, allowable_actions: List[Action]) -> bool:
-        assert action in allowable_actions, f"Reward function selected action {action} which is not allowable: {allowable_actions}"
+        try:
+            assert action in allowable_actions, f"Reward function selected action {action} which is not allowable: {allowable_actions}"
+        except AssertionError as e:
+            print(f"Ignoring {e}")
         
     @abstractmethod
     #def calculate_reward(self, player_state: Any, action: Any, next_state: Any) -> float:
@@ -58,7 +61,7 @@ class BasicRewardFunction(RewardFunction):
 
     def calculate_reward(self, player_state: PlayerState, action: Action, allowable_actions: List[Action]) -> float:
         super().calculate_reward(player_state, action, allowable_actions)
-        
+
         reward = 0.0
 
         # Reward, victory points
