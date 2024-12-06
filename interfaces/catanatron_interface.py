@@ -71,10 +71,7 @@ class CatanatronParser:
         return parameters
 
     @staticmethod
-    def parse_board_json(board_path) -> StaticBoardState:
-        with open(board_path, 'r') as f:
-            json_data = json.load(f)
-
+    def __parse_board(json_data) -> StaticBoardState:
         hex_tiles = []
         nodes = []
         edges = []
@@ -151,6 +148,98 @@ class CatanatronParser:
         )
 
     @staticmethod
+    def parse_board(raw_json_data) -> StaticBoardState:
+        json_data = json.loads(raw_json_data)
+        return CatanatronParser.__parse_board(json_data)
+
+    @staticmethod
+    def parse_board_json(board_path) -> StaticBoardState:
+        with open(board_path, 'r') as f:
+            json_data = json.load(f)
+        return CatanatronParser.__parse_board(json_data)
+
+    @staticmethod
+    def __parse_game_step(game_state, static_board_state: StaticBoardState) -> Tuple[List[PlayerState], DynamicBoardState, PlayerID]:
+        # Get current player
+        current_player = game_state.get('current_player')
+        current_player_id = PlayerID.string_to_enum(current_player)
+        if VERBOSE_LOGGING: print(f"Current player: {current_player}:{current_player_id}")
+
+        # Parse player states
+        player_states = game_state['player_states']
+        player_states_list = [
+            PlayerState(
+                PLAYER_ID=PlayerID.string_to_enum(player_color),
+                HAS_ROLLED=player_states.get(f'P{player_id}_HAS_ROLLED'),
+                HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN=player_states.get(f'P{player_id}_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN'),
+                VISIBLE_VICTORY_POINTS=player_states.get(f'P{player_id}_VICTORY_POINTS'),
+                ACTUAL_VICTORY_POINTS=player_states.get(f'P{player_id}_ACTUAL_VICTORY_POINTS'),
+                HAS_LONGEST_ROAD=player_states.get(f'P{player_id}_HAS_ROAD'),
+                HAS_LARGEST_ARMY=player_states.get(f'P{player_id}_HAS_ARMY'),
+                ROADS_AVAILABLE=player_states.get(f'P{player_id}_ROADS_AVAILABLE'),
+                SETTLEMENTS_AVAILABLE=player_states.get(f'P{player_id}_SETTLEMENTS_AVAILABLE'),
+                CITIES_AVAILABLE=player_states.get(f'P{player_id}_CITIES_AVAILABLE'),
+                LONGEST_ROAD_LENGTH=player_states.get(f'P{player_id}_LONGEST_ROAD_LENGTH'),
+                WOOD_IN_HAND=player_states.get(f'P{player_id}_WOOD_IN_HAND'),
+                BRICK_IN_HAND=player_states.get(f'P{player_id}_BRICK_IN_HAND'),
+                SHEEP_IN_HAND=player_states.get(f'P{player_id}_SHEEP_IN_HAND'),
+                WHEAT_IN_HAND=player_states.get(f'P{player_id}_WHEAT_IN_HAND'),
+                ORE_IN_HAND=player_states.get(f'P{player_id}_ORE_IN_HAND'),
+                KNIGHTS_IN_HAND=player_states.get(f'P{player_id}_KNIGHT_IN_HAND'),
+                NUMBER_PLAYED_KNIGHT=player_states.get(f'P{player_id}_PLAYED_KNIGHT'),
+                YEAR_OF_PLENTY_IN_HAND=player_states.get(f'P{player_id}_YEAR_OF_PLENTY_IN_HAND'),
+                NUMBER_PLAYED_YEAR_OF_PLENTY=player_states.get(f'P{player_id}_PLAYED_YEAR_OF_PLENTY'),
+                MONOPOLY_IN_HAND=player_states.get(f'P{player_id}_MONOPOLY_IN_HAND'),
+                NUMBER_PLAYED_MONOPOLY=player_states.get(f'P{player_id}_PLAYED_MONOPOLY'),
+                ROAD_BUILDING_IN_HAND=player_states.get(f'P{player_id}_ROAD_BUILDING_IN_HAND'),
+                NUMBER_PLAYED_ROAD_BUILDING=player_states.get(f'P{player_id}_PLAYED_ROAD_BUILDING'),
+                VICTORY_POINT_IN_HAND=player_states.get(f'P{player_id}_VICTORY_POINT_IN_HAND'),
+                NUMBER_PLAYED_VICTORY_POINT=player_states.get(f'P{player_id}_PLAYED_VICTORY_POINT')
+            )
+            for player_id, player_color in enumerate(game_state['players'])
+        ]
+
+        # Parse dynamic board state
+        board_state = game_state['board']
+        buildings = [
+            Building(node_id=building['node_id'],
+                        building_type=BuildingType.string_to_enum(building['type']),
+                        player_owner=PlayerID.string_to_enum(building['color']))
+            for building in board_state['buildings']
+        ]
+
+        roads = [
+            Road(edge_id=tuple(sorted(road['edge_id'])), player_owner=PlayerID.string_to_enum(road['color']))
+            for road in board_state['roads']
+        ]
+
+        robber_location = static_board_state.coordinate_to_hex_mapping[tuple(board_state['robber_coordinate'])].hex_id
+        if VERBOSE_LOGGING: print(f"Robber location (Hex ID:Coordinate): {robber_location}:{board_state['robber_coordinate']}")
+        available_actions = [
+            Action(player_id=PlayerID.string_to_enum(player),
+                    action=ActionType.string_to_enum(type),
+                    parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(type), static_board_state, params)
+                    )
+            for player, type, params in game_state['playable_actions']
+        ]
+
+        dynamic_board_state = DynamicBoardState(
+            current_player=current_player_id,
+            buildings=buildings,
+            roads=list(set(roads)),
+            robber_location=robber_location,
+            available_actions=available_actions
+        )
+
+        return (player_states_list, dynamic_board_state, current_player_id)
+
+    @staticmethod
+    def parse_data(raw_json_data, static_board_state: StaticBoardState, reorder_players: bool) -> Tuple[List[PlayerState], DynamicBoardState, PlayerID]:
+        json_data = json.loads(raw_json_data)
+        print(json_data)
+        return CatanatronParser.__parse_game_step(json_data, static_board_state)
+
+    @staticmethod
     def parse_data_json(data_path, static_board_state: StaticBoardState, reorder_players: bool) -> CatanGame:
         with open(data_path, 'r') as f:
             json_data = json.load(f)
@@ -161,63 +250,9 @@ class CatanatronParser:
 
         game = json_data.get('game')
         game_steps = []
-        for step in game:
+        for step in game:            
             game_state = step.get('state')
-
-            # Get current player
-            current_player = game_state.get('current_player')
-            current_player_id = PlayerID.string_to_enum(current_player)
-            if VERBOSE_LOGGING: print(f"Current player: {current_player}:{current_player_id}")
-
-            # Get action that was taken by player
-            action_taken = step.get('action')
-            action_taken_by_player = (
-                Action(
-                    player_id=PlayerID.string_to_enum(action_taken[0]),
-                    action=ActionType.string_to_enum(action_taken[1]),
-                    parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(action_taken[1]), static_board_state, action_taken[2])
-                )
-                if action_taken
-                else Action(
-                    player_id=current_player_id,
-                    action=ActionType.GAME_FINISHED,
-                    parameters=[]
-                )
-            )
-
-            # Parse player states
-            player_states = game_state['player_states']
-            player_states_list = [
-                PlayerState(
-                    PLAYER_ID=PlayerID.string_to_enum(player_color),
-                    HAS_ROLLED=player_states.get(f'P{player_id}_HAS_ROLLED'),
-                    HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN=player_states.get(f'P{player_id}_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN'),
-                    VISIBLE_VICTORY_POINTS=player_states.get(f'P{player_id}_VICTORY_POINTS'),
-                    ACTUAL_VICTORY_POINTS=player_states.get(f'P{player_id}_ACTUAL_VICTORY_POINTS'),
-                    HAS_LONGEST_ROAD=player_states.get(f'P{player_id}_HAS_ROAD'),
-                    HAS_LARGEST_ARMY=player_states.get(f'P{player_id}_HAS_ARMY'),
-                    ROADS_AVAILABLE=player_states.get(f'P{player_id}_ROADS_AVAILABLE'),
-                    SETTLEMENTS_AVAILABLE=player_states.get(f'P{player_id}_SETTLEMENTS_AVAILABLE'),
-                    CITIES_AVAILABLE=player_states.get(f'P{player_id}_CITIES_AVAILABLE'),
-                    LONGEST_ROAD_LENGTH=player_states.get(f'P{player_id}_LONGEST_ROAD_LENGTH'),
-                    WOOD_IN_HAND=player_states.get(f'P{player_id}_WOOD_IN_HAND'),
-                    BRICK_IN_HAND=player_states.get(f'P{player_id}_BRICK_IN_HAND'),
-                    SHEEP_IN_HAND=player_states.get(f'P{player_id}_SHEEP_IN_HAND'),
-                    WHEAT_IN_HAND=player_states.get(f'P{player_id}_WHEAT_IN_HAND'),
-                    ORE_IN_HAND=player_states.get(f'P{player_id}_ORE_IN_HAND'),
-                    KNIGHTS_IN_HAND=player_states.get(f'P{player_id}_KNIGHT_IN_HAND'),
-                    NUMBER_PLAYED_KNIGHT=player_states.get(f'P{player_id}_PLAYED_KNIGHT'),
-                    YEAR_OF_PLENTY_IN_HAND=player_states.get(f'P{player_id}_YEAR_OF_PLENTY_IN_HAND'),
-                    NUMBER_PLAYED_YEAR_OF_PLENTY=player_states.get(f'P{player_id}_PLAYED_YEAR_OF_PLENTY'),
-                    MONOPOLY_IN_HAND=player_states.get(f'P{player_id}_MONOPOLY_IN_HAND'),
-                    NUMBER_PLAYED_MONOPOLY=player_states.get(f'P{player_id}_PLAYED_MONOPOLY'),
-                    ROAD_BUILDING_IN_HAND=player_states.get(f'P{player_id}_ROAD_BUILDING_IN_HAND'),
-                    NUMBER_PLAYED_ROAD_BUILDING=player_states.get(f'P{player_id}_PLAYED_ROAD_BUILDING'),
-                    VICTORY_POINT_IN_HAND=player_states.get(f'P{player_id}_VICTORY_POINT_IN_HAND'),
-                    NUMBER_PLAYED_VICTORY_POINT=player_states.get(f'P{player_id}_PLAYED_VICTORY_POINT')
-                )
-                for player_id, player_color in enumerate(game_state['players'])
-            ]
+            player_states_list, dynamic_board_state, current_player_id = CatanatronParser.__parse_game_step(game_state, static_board_state)
 
             if reorder_players:
                 reordered_player_states_list = (
@@ -236,37 +271,23 @@ class CatanatronParser:
                     print(f"Parsed: {[state.PLAYER_ID for state in reordered_player_states_list]}")
                     print("\n")
 
-            # Parse dynamic board state
-            board_state = game_state['board']
-            buildings = [
-                Building(node_id=building['node_id'],
-                         building_type=BuildingType.string_to_enum(building['type']),
-                         player_owner=PlayerID.string_to_enum(building['color']))
-                for building in board_state['buildings']
-            ]
-
-            roads = [
-                Road(edge_id=tuple(sorted(road['edge_id'])), player_owner=PlayerID.string_to_enum(road['color']))
-                for road in board_state['roads']
-            ]
-
-            robber_location = static_board_state.coordinate_to_hex_mapping[tuple(board_state['robber_coordinate'])].hex_id
-            if VERBOSE_LOGGING: print(f"Robber location (Hex ID:Coordinate): {robber_location}:{board_state['robber_coordinate']}")
-            available_actions = [
-                Action(player_id=PlayerID.string_to_enum(player),
-                       action=ActionType.string_to_enum(type),
-                       parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(type), static_board_state, params)
-                       )
-                for player, type, params in game_state['playable_actions']
-            ]
-
-            dynamic_board_state = DynamicBoardState(
-                current_player=current_player_id,
-                buildings=buildings,
-                roads=list(set(roads)),
-                robber_location=robber_location,
-                available_actions=available_actions
+            # Get action that was taken by player
+            action_taken = step.get('action')
+            action_taken_by_player = (
+                Action(
+                    player_id=PlayerID.string_to_enum(action_taken[0]),
+                    action=ActionType.string_to_enum(action_taken[1]),
+                    parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(action_taken[1]), static_board_state, action_taken[2])
+                )
+                if action_taken
+                else Action(
+                    player_id=current_player_id,
+                    action=ActionType.GAME_FINISHED,
+                    parameters=[]
+                )
             )
+
+
             game_steps.append(GameStep(step=(player_states_list, dynamic_board_state, action_taken_by_player)))
 
         return CatanGame(

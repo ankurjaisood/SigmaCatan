@@ -15,9 +15,14 @@ module_path = os.path.abspath(os.path.dirname(__file__))  # Adjust as needed
 if module_path not in sys.path:
     sys.path.append(module_path)
 
+import json
+import np
+from catanatron_experimental.cli.accumulators import SigmaCatanDataAccumulator
 from interfaces.catanatron_interface import CatanatronParser
 from environment.player_state import PlayerState, PlayerID
 from environment.action import Action, ActionType
+from environment.board_state import StaticBoardState, DynamicBoardState
+from environment.player_state import PlayerState
 
 VERBOSE_LOGGING = False
 
@@ -27,6 +32,19 @@ WEIGHTS_BY_ACTION_TYPE = {
     ActionType.BUY_DEVELOPMENT_CARD: 100,
 }
 
+# INPUT TENSOR SIZE CHECKS
+ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
+FLATTENED_STATIC_BOARD_STATE_LENGTH = 1817
+EXPECTED_NUMBER_OF_PLAYERS = 4
+FLATTENED_PLAYER_STATE_LENGTH = 26
+FLATTENED_DYNAMIC_BOARD_STATE_LENGTH = 486
+
+INPUT_STATE_TENSOR_EXPECTED_LENGTH = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH
+INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH
+OUTPUT_TENSOR_EXPECTED_LENGTH = 14
+
+FLATTENED_ACTION_LENGTH = 1
+
 @register_player("DQN")
 class DQNPlayer(Player):
     """
@@ -34,10 +52,56 @@ class DQNPlayer(Player):
     to actions that are likely better (cities > settlements > dev cards).
     """
 
+    def __init__(self, 
+                 color, 
+                 is_bot=True):
+        super().__init__(color, is_bot)
+        self.parser = CatanatronParser()
+        self.indent = "\t"
+
+        ## TODO(jai): CODE DUPLICATION FROM main.py
+        self.static_board = True # Move to constructor
+        self.disable_dynamic_board_state = False # Move to constructor
+        self.expected_state_tensor_size = (FLATTENED_STATIC_BOARD_STATE_LENGTH if not self.static_board else 0) + \
+                                    (EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH) + \
+                                    (FLATTENED_DYNAMIC_BOARD_STATE_LENGTH if not self.disable_dynamic_board_state else 0)
+
+
+    def create_state_tensor(self,
+                            board_state: StaticBoardState,
+                            dynamic_board_state: DynamicBoardState,
+                            player_states: List[PlayerState]):
+        # Preallocate the state tensor with known sizes to improve performance
+        state_tensor = np.zeros(self.expected_state_tensor_size, dtype=np.float32)
+        idx = 0
+
+        if not self.static_board:
+            board_data = board_state.flatten()
+            state_tensor[idx:idx + len(board_data)] = board_data
+            idx += len(board_data)
+
+        for player_state in player_states:
+            player_data = player_state.flatten()
+            state_tensor[idx:idx + len(player_data)] = player_data
+            idx += len(player_data)
+
+        if not self.disable_dynamic_board_state:
+            dynamic_data = dynamic_board_state.flatten()
+            state_tensor[idx:idx + len(dynamic_data)] = dynamic_data
+
+        if ENABLE_RUNTIME_TENSOR_SIZE_CHECKS:
+            expected_length = INPUT_STATE_TENSOR_EXPECTED_LENGTH if not self.static_board else INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD
+            if self.disable_dynamic_board_state:
+                expected_length -= FLATTENED_DYNAMIC_BOARD_STATE_LENGTH
+            assert state_tensor.shape[0] == expected_length, f"State tensor unexpected size! {state_tensor.shape[0]}"
+        return state_tensor
+
     def decide(self, game, playable_actions):
-        # Convert the game state to PlayerState
-        player_states = self.convert_game_state_to_player_state(game.state)
-        available_actions = self.convert_playable_actions(playable_actions)
+        static_board_json = json.dumps(game.state.board.map, cls=SigmaCatanDataAccumulator.SigmaCatanGameEncoder, indent=self.indent)
+        static_board = self.parser.parse_board(static_board_json)
+
+        game_data_json = json.dumps(game.state, cls=SigmaCatanDataAccumulator.SigmaCatanGameEncoder, indent=self.indent)
+        game_data = self.parser.parse_data(game_data_json, static_board, False)
         
         # TODO: Implement DQN-based decision making using player_state
         # For example:
@@ -49,80 +113,6 @@ class DQNPlayer(Player):
         for action in playable_actions:
             weight = WEIGHTS_BY_ACTION_TYPE.get(action.action_type, 1)
             bloated_actions.extend([action] * weight
-
         )
 
         return random.choice(bloated_actions)
-    def convert_playable_actions(self, playable_actions) -> List[Action]:
-        print(playable_actions)
-        available_actions = [
-                Action(player_id=PlayerID.string_to_enum(player),
-                       action=ActionType.string_to_enum(type),
-                       parameters = CatanatronParser.get_action_parameters(ActionType.string_to_enum(type), static_board_state, params)
-                       )
-                for player, type, params in game_state['playable_actions']
-            ]
-        return available_actions
-
-    def convert_game_state_to_player_state(self, game_state: State) -> List[PlayerState]:
-        """
-        Converts the overall game state to the PlayerState for the current player.
-
-        Args:
-            game_state (State): The current game state.
-
-        Returns:
-            PlayerState: The state representation for the current player.
-
-        Raises:
-            KeyError: If any expected key is missing in the game_state.player_state.
-        """
-        current_player_index = game_state.current_player_index
-        prefix = f"P{current_player_index}_"
-        p_state = game_state.player_state
-
-        player_states = game_state.player_state
-        player_states_list = [
-                PlayerState(
-                    PLAYER_ID=PlayerID.string_to_enum(player_color.value),
-                    HAS_ROLLED=player_states.get(f'P{player_id}_HAS_ROLLED'),
-                    HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN=player_states.get(f'P{player_id}_HAS_PLAYED_DEVELOPMENT_CARD_IN_TURN'),
-                    VISIBLE_VICTORY_POINTS=player_states.get(f'P{player_id}_VICTORY_POINTS'),
-                    ACTUAL_VICTORY_POINTS=player_states.get(f'P{player_id}_ACTUAL_VICTORY_POINTS'),
-                    HAS_LONGEST_ROAD=player_states.get(f'P{player_id}_HAS_ROAD'),
-                    HAS_LARGEST_ARMY=player_states.get(f'P{player_id}_HAS_ARMY'),
-                    ROADS_AVAILABLE=player_states.get(f'P{player_id}_ROADS_AVAILABLE'),
-                    SETTLEMENTS_AVAILABLE=player_states.get(f'P{player_id}_SETTLEMENTS_AVAILABLE'),
-                    CITIES_AVAILABLE=player_states.get(f'P{player_id}_CITIES_AVAILABLE'),
-                    LONGEST_ROAD_LENGTH=player_states.get(f'P{player_id}_LONGEST_ROAD_LENGTH'),
-                    WOOD_IN_HAND=player_states.get(f'P{player_id}_WOOD_IN_HAND'),
-                    BRICK_IN_HAND=player_states.get(f'P{player_id}_BRICK_IN_HAND'),
-                    SHEEP_IN_HAND=player_states.get(f'P{player_id}_SHEEP_IN_HAND'),
-                    WHEAT_IN_HAND=player_states.get(f'P{player_id}_WHEAT_IN_HAND'),
-                    ORE_IN_HAND=player_states.get(f'P{player_id}_ORE_IN_HAND'),
-                    KNIGHTS_IN_HAND=player_states.get(f'P{player_id}_KNIGHT_IN_HAND'),
-                    NUMBER_PLAYED_KNIGHT=player_states.get(f'P{player_id}_PLAYED_KNIGHT'),
-                    YEAR_OF_PLENTY_IN_HAND=player_states.get(f'P{player_id}_YEAR_OF_PLENTY_IN_HAND'),
-                    NUMBER_PLAYED_YEAR_OF_PLENTY=player_states.get(f'P{player_id}_PLAYED_YEAR_OF_PLENTY'),
-                    MONOPOLY_IN_HAND=player_states.get(f'P{player_id}_MONOPOLY_IN_HAND'),
-                    NUMBER_PLAYED_MONOPOLY=player_states.get(f'P{player_id}_PLAYED_MONOPOLY'),
-                    ROAD_BUILDING_IN_HAND=player_states.get(f'P{player_id}_ROAD_BUILDING_IN_HAND'),
-                    NUMBER_PLAYED_ROAD_BUILDING=player_states.get(f'P{player_id}_PLAYED_ROAD_BUILDING'),
-                    VICTORY_POINT_IN_HAND=player_states.get(f'P{player_id}_VICTORY_POINT_IN_HAND'),
-                    NUMBER_PLAYED_VICTORY_POINT=player_states.get(f'P{player_id}_PLAYED_VICTORY_POINT')
-                )
-                for player_id, player_color in enumerate(game_state.colors)
-        ]
-
-        # TODO(jaisood): ADD REORDERING FOR STATES BASED ON FLAG
-
-        if VERBOSE_LOGGING:
-            print("OUTPUT")
-            print([(player_id, player_color) for player_id, player_color  in enumerate(game_state.colors)])
-            print(player_states)
-            print(player_states_list)
-
-        # If you have additional mappings from other parts of the state, handle them here
-        # For example, resource counts from the board or other players
-
-        return player_states_list
