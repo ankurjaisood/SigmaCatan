@@ -48,8 +48,11 @@ OUTPUT_TENSOR_EXPECTED_LENGTH = 14
 
 FLATTENED_ACTION_LENGTH = 1
 
-#MODEL_PATH = "./models/static_board/model-20241204_122518-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_2500.pth"
-MODEL_PATH = "./models/static_board/model-20241205_211410-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_5-updatefreq_5000.pth"
+MODEL_PATH = "./models/static_board/model-20241204_122518-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_2500.pth"
+# MODEL_PATH = "./models/static_board/model-20241205_211410-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_5-updatefreq_5000.pth"
+# MODEL_PATH = "model-20241204_210439-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_80-updatefreq_2500.pth"
+
+MASK_INVALID_ACTIONS = True
 
 @register_player("DQN")
 class DQNPlayer(Player):
@@ -76,7 +79,8 @@ class DQNPlayer(Player):
         self.invalid_step_counter = 0
 
     def __del__(self):
-        print(f"Invalid actions/total actions: {self.invalid_step_counter}/{self.step_counter}")
+        pass
+        #print(f"Invalid actions/total actions: {self.invalid_step_counter}/{self.step_counter}")
 
 
     def _load_model(self, model_path):
@@ -122,23 +126,55 @@ class DQNPlayer(Player):
 
         game_data_json = json.dumps(game.state, cls=SigmaCatanDataAccumulator.SigmaCatanGameEncoder, indent=self.indent)
         player_states, dynamic_board_state, player_id = self.parser.parse_data(game_data_json, static_board, False)
-
         input_state_tensor = self.create_state_tensor(static_board, dynamic_board_state, player_states)
-        output_tensor = self.model.forward(torch.from_numpy(input_state_tensor))
 
-        best_action_idx = torch.argmax(output_tensor).item()
-        best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
-        best_action = ActionType(best_action_idx)
+        # Convert to torch and move to the same device as model
+        input_state_tensor_torch = torch.from_numpy(input_state_tensor).float().to(self.device)
 
-        if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
+        # Run the model forward pass
+        with torch.no_grad():
+            output_tensor = self.model.forward(input_state_tensor_torch)
 
         allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
-        self.step_counter += 1
-        if(best_action in allowable_action_list and best_action != ActionType.END_TURN):
-            selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
-            if VERBOSE_LOGGING: print(selected_allowable_actions)
-            selected_action = random.choice(selected_allowable_actions)
-            return playable_actions[selected_action[0]]
+        valid_action_indices = [a.value for a in allowable_action_list]  # if allowable_action_list returns ActionTypes
+        num_actions = output_tensor.shape[0]
+
+        if MASK_INVALID_ACTIONS:
+            # Argmax across valid actions only
+            valid_actions_mask = torch.zeros(num_actions, dtype=torch.bool, device=output_tensor.device)
+            for idx in valid_action_indices:
+                valid_actions_mask[idx] = True
+
+            # Mask out invalid actions by setting them to -inf
+            masked_q_values = output_tensor.clone()
+            masked_q_values[~valid_actions_mask] = float('-inf')
+
+            # Choose the action with the highest Q-value among valid actions
+            best_action_idx = torch.argmax(masked_q_values).item()
+            best_action = ActionType(best_action_idx)
+
+            if VERBOSE_LOGGING:
+                print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
+
+            # Find the matching playable Action object
+            for action in playable_actions:
+                if ActionType.string_to_enum(action.action_type.value) == best_action:
+                    return action
         else:
-            self.invalid_step_counter += 1
-            return random.choice(playable_actions)
+            # Argmax agross all actions, only choose model action if it is valid
+            best_action_idx = torch.argmax(output_tensor).item()
+            best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
+            best_action = ActionType(best_action_idx)
+
+            if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
+
+            allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
+            self.step_counter += 1
+            if(best_action in allowable_action_list and best_action != ActionType.END_TURN):
+                selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
+                if VERBOSE_LOGGING: print(selected_allowable_actions)
+                selected_action = random.choice(selected_allowable_actions)
+                return playable_actions[selected_action[0]]
+            else:
+                self.invalid_step_counter += 1
+                return random.choice(playable_actions)
