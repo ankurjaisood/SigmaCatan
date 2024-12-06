@@ -61,6 +61,7 @@ class ReplayBuffer:
 
 class DQNTrainer:
     def __init__(self,
+                 reward_function_str: str,
                  input_size: int,
                  output_size: int,
                  gamma=0.90,
@@ -68,7 +69,7 @@ class DQNTrainer:
                  batch_size=512,
                  buffer_size=100000,
                  target_update_freq=10000,
-                 num_epochs=50,
+                 num_epochs=5,
                  max_steps_per_episode=200,
                  tau=0.001,
                  lossname="huber"):
@@ -95,7 +96,7 @@ class DQNTrainer:
         self.max_steps_per_episode = max_steps_per_episode
         self.tau = tau
         self.lossname = lossname
-        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-hidden_{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}-loss_{lossname}-tau_{tau}.pth"
+        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-hidden_{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}-loss_{lossname}-tau_{tau}-rewardfunc_{reward_function_str}.pth"
 
         # Initialize Networks and Optimizer
         self.policy_net = DQN(input_size, output_size, self.hidden_size)
