@@ -95,7 +95,7 @@ class DQNTrainer:
         self.max_steps_per_episode = max_steps_per_episode
         self.tau = tau
         self.lossname = lossname
-        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}:{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}.pth"
+        self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-hidden_{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}-loss_{lossname}-tau_{tau}.pth"
 
         # Initialize Networks and Optimizer
         self.policy_net = DQN(input_size, output_size, self.hidden_size)
