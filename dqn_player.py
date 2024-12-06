@@ -48,7 +48,8 @@ OUTPUT_TENSOR_EXPECTED_LENGTH = 14
 
 FLATTENED_ACTION_LENGTH = 1
 
-MODEL_PATH = "./models/static_board/model-20241204_122518-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_2500.pth"
+#MODEL_PATH = "./models/static_board/model-20241204_122518-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_2500.pth"
+MODEL_PATH = "./models/static_board/model-20241205_211410-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_5-updatefreq_5000.pth"
 
 @register_player("DQN")
 class DQNPlayer(Player):
@@ -126,12 +127,19 @@ class DQNPlayer(Player):
         output_tensor = self.model.forward(torch.from_numpy(input_state_tensor))
 
         best_action_idx = torch.argmax(output_tensor).item()
+        best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
         best_action = ActionType(best_action_idx)
+
+        if best_action == ActionType.END_TURN:
+            print(f"Best action predicted was {ActionType.END_TURN}")
+            best_action_idx = torch.argmax(output_tensor[1:]).item()
+            best_action = ActionType(best_action_idx)
+
         if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
 
         allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
         self.step_counter += 1
-        if(best_action in allowable_action_list):
+        if(best_action in allowable_action_list and best_action != ActionType.END_TURN):
             selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
             if VERBOSE_LOGGING: print(selected_allowable_actions)
             selected_action = random.choice(selected_allowable_actions)
