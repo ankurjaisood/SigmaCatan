@@ -97,7 +97,7 @@ class Action:
             raise ValueError(f"Unhandled ActionType: {self.action}")
         
         # TESTING ENUMERATING ACTIONS WITHOUT PARAMETERS
-        return [base]
+        return [self.action.value]
 
         # Actions without parameters
         if self.action in {

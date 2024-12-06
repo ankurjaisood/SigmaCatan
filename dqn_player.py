@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 from catanatron import Player
 from catanatron_experimental.cli.cli_players import register_player
-from catanatron.models.actions import ActionType
-from catanatron.state import State
 import torch
 
 # Enable local SigmaCatan code modules to be imported
@@ -25,33 +23,18 @@ from environment.action import Action, ActionType
 from environment.board_state import StaticBoardState, DynamicBoardState
 from environment.player_state import PlayerState
 from agents.dqn import DQN
-from main import INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, OUTPUT_TENSOR_EXPECTED_LENGTH
+from main import INPUT_STATE_TENSOR_EXPECTED_LENGTH, \
+                 INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, \
+                 OUTPUT_TENSOR_EXPECTED_LENGTH, \
+                 FLATTENED_DYNAMIC_BOARD_STATE_LENGTH, \
+                 FLATTENED_STATIC_BOARD_STATE_LENGTH, \
+                 EXPECTED_NUMBER_OF_PLAYERS, \
+                 FLATTENED_PLAYER_STATE_LENGTH
+
 
 VERBOSE_LOGGING = False
-
-WEIGHTS_BY_ACTION_TYPE = {
-    ActionType.BUILD_CITY: 10000,
-    ActionType.BUILD_SETTLEMENT: 1000,
-    ActionType.BUY_DEVELOPMENT_CARD: 100,
-}
-
-# INPUT TENSOR SIZE CHECKS
 ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
-FLATTENED_STATIC_BOARD_STATE_LENGTH = 1817
-EXPECTED_NUMBER_OF_PLAYERS = 4
-FLATTENED_PLAYER_STATE_LENGTH = 26
-FLATTENED_DYNAMIC_BOARD_STATE_LENGTH = 486
-
-INPUT_STATE_TENSOR_EXPECTED_LENGTH = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + FLATTENED_STATIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH
-INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD = FLATTENED_DYNAMIC_BOARD_STATE_LENGTH + EXPECTED_NUMBER_OF_PLAYERS * FLATTENED_PLAYER_STATE_LENGTH
-OUTPUT_TENSOR_EXPECTED_LENGTH = 14
-
-FLATTENED_ACTION_LENGTH = 1
-
-MODEL_PATH = "./models/static_board/model-20241204_122518-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_2500.pth"
-# MODEL_PATH = "./models/static_board/model-20241205_211410-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_5-updatefreq_5000.pth"
-# MODEL_PATH = "model-20241204_210439-590x14:302-gamma_0.99-lr_0.0001-bs_512-epochs_80-updatefreq_2500.pth"
-
+MODEL_PATH = "./model-20241205_201455-590x13:301-gamma_0.99-lr_0.0001-bs_512-epochs_1-updatefreq_10000.pth"
 MASK_INVALID_ACTIONS = True
 
 @register_player("DQN")
@@ -85,7 +68,7 @@ class DQNPlayer(Player):
 
     def _load_model(self, model_path):
         # Replace DQNModel with your actual model class
-        model = DQN(INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, OUTPUT_TENSOR_EXPECTED_LENGTH, hidden_layer_size=302)
+        model = DQN(INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD, OUTPUT_TENSOR_EXPECTED_LENGTH, (INPUT_STATE_TENSOR_EXPECTED_LENGTH_STATIC_BOARD + OUTPUT_TENSOR_EXPECTED_LENGTH) // 2)
         state_dict = torch.load(model_path, map_location=self.device)
         model.load_state_dict(state_dict)
         print(f"Loaded model from {model_path}")
@@ -136,11 +119,13 @@ class DQNPlayer(Player):
             output_tensor = self.model.forward(input_state_tensor_torch)
 
         allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
-        valid_action_indices = [a.value for a in allowable_action_list]  # if allowable_action_list returns ActionTypes
         num_actions = output_tensor.shape[0]
 
+        action_chosen = None
+        self.step_counter += 1
         if MASK_INVALID_ACTIONS:
             # Argmax across valid actions only
+            valid_action_indices = [a.value-1 for a in allowable_action_list]  # if allowable_action_list returns ActionTypes
             valid_actions_mask = torch.zeros(num_actions, dtype=torch.bool, device=output_tensor.device)
             for idx in valid_action_indices:
                 valid_actions_mask[idx] = True
@@ -151,15 +136,19 @@ class DQNPlayer(Player):
 
             # Choose the action with the highest Q-value among valid actions
             best_action_idx = torch.argmax(masked_q_values).item()
+            best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
             best_action = ActionType(best_action_idx)
 
             if VERBOSE_LOGGING:
                 print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
+                print(f"Playable Actions: {playable_actions}")
+                print(masked_q_values, output_tensor)
 
             # Find the matching playable Action object
             for action in playable_actions:
                 if ActionType.string_to_enum(action.action_type.value) == best_action:
-                    return action
+                    action_chosen = action
+                    print(f"ACTION CHOSEN (Masked Model): {action_chosen}")
         else:
             # Argmax agross all actions, only choose model action if it is valid
             best_action_idx = torch.argmax(output_tensor).item()
@@ -169,12 +158,15 @@ class DQNPlayer(Player):
             if VERBOSE_LOGGING: print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
 
             allowable_action_list = [ActionType.string_to_enum(action.action_type.value) for action in playable_actions]
-            self.step_counter += 1
             if(best_action in allowable_action_list and best_action != ActionType.END_TURN):
                 selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
                 if VERBOSE_LOGGING: print(selected_allowable_actions)
                 selected_action = random.choice(selected_allowable_actions)
-                return playable_actions[selected_action[0]]
-            else:
-                self.invalid_step_counter += 1
-                return random.choice(playable_actions)
+                action_chosen = playable_actions[selected_action[0]]
+                print(f"ACTION CHOSEN (Model): {action_chosen}")
+
+        if action_chosen is None:
+            self.invalid_step_counter += 1
+            action_chosen = random.choice(playable_actions)
+            print(f"ACTION CHOSEN (Random): {action_chosen}")
+        return action_chosen
