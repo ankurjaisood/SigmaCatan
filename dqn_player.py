@@ -142,6 +142,7 @@ class DQNPlayer(Player):
             best_action_idx += 1 # TODO(jaisood): PYTHON ENUMS START FROM 1 WHEN YOU USE auto()
             best_action = ActionType(best_action_idx)
 
+            # TODO(jaisood): REMOVE HACK FORBID AGENT FROM ENDING TURN
             if best_action != ActionType.END_TURN:
                 if VERBOSE_LOGGING:
                     print(f"Best action idx: {best_action_idx}, Best Action: {best_action.name}")
