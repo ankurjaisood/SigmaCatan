@@ -12,7 +12,7 @@ from environment.board_state import StaticBoardState, DynamicBoardState
 from environment.player_state import PlayerState
 from environment.game import CatanGame
 from environment.action import Action
-from rewards.reward_functions import BasicRewardFunction, VPRewardFunction
+from rewards.reward_functions import BasicRewardFunction, VPRewardFunction, EndTurnPenaltyRewardFunction
 from agents.dqn import DQNTrainer
 
 # DEBUG LOGGING
@@ -121,6 +121,8 @@ class GameIterator:
                 reward_function = VPRewardFunction(game.winner)
             elif self.reward_func_str == "BASIC":
                 reward_function = BasicRewardFunction(game.winner)
+            elif self.reward_func_str == "END_TURN_PENALTY":
+                reward_function = EndTurnPenaltyRewardFunction(game.winner)
             else:
                 raise ValueError(f"Invalid reward function: {self.reward_func_str}")
 
@@ -197,7 +199,7 @@ def main():
     parser.add_argument("--reorder_players", action="store_true", help="Whether to reorder players such that the winner is always index 0 in the players array.")
     
     # Named required parameters
-    parser.add_argument("--reward_func", type=str, required=True, help="Reward function to use. Options: VP, BASIC")
+    parser.add_argument("--reward_func", type=str, required=True, help="Reward function to use. Options: VP, BASIC, END_TURN_PENALTY")
     parser.add_argument("--gamma", type=float_between_0_and_1, required=True, help="Gamma discount factor")
     parser.add_argument("--num_epochs", type=positive_int, required=True, help="Number of epochs to run (positive int)")
     parser.add_argument("--target_update_freq", type=positive_int, required=True, help="Number of steps after which to update target model (positive int)")
