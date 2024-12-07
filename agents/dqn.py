@@ -71,10 +71,10 @@ class DQNTrainer:
                  num_epochs: int,
                  target_update_freq: int,
                  lossname: str,
+                 tau: float,
                  learning_rate=1e-4,
                  batch_size=512,
-                 buffer_size=100000,
-                 tau=0.001):
+                 buffer_size=100000):
 
         # Device
         torch.cuda.empty_cache()

@@ -7,9 +7,9 @@ set -e
 DATASET_DIR="./datasets/2024-12-04_10_31_09"
 
 # Parameter table:
-# Each line defines: reward_func gamma num_epochs target_update_freq loss_func
+# Each line defines: reward_func gamma num_epochs target_update_freq loss_func end_turn_penalty tau
 params=(
-    "BASIC 0.90 1 10000 huber"
+    "BASIC 0.90 1 10000 huber 2.5 0.001"
 )
 
 # Output directory for logs
@@ -19,7 +19,7 @@ mkdir -p "$output_dir"
 # Iterate through the parameter table and run `main.py` with the respective arguments
 for param in "${params[@]}"; do
     # Read the parameters into variables
-    read -r reward_func gamma num_epochs target_update_freq loss_func <<< "$param"
+    read -r reward_func gamma num_epochs target_update_freq loss_func end_turn_penalty tau <<< "$param"
 
     # Generate a unique filename for the output
     timestamp=$(date +%Y%m%d_%H%M%S)
@@ -27,7 +27,7 @@ for param in "${params[@]}"; do
 
     # Print the current configuration
     echo "Running with parameters: "
-    echo "--static_board --reward_func $reward_func --gamma $gamma --num_epochs $num_epochs --target_update_freq $target_update_freq --loss_func $loss_func"
+    echo "--static_board --reward_func $reward_func --gamma $gamma --num_epochs $num_epochs --target_update_freq $target_update_freq --loss_func $loss_func --end_turn_penalty $end_turn_penalty --tau $tau"
     echo "Logging output to: $log_file"
 
     # Run the Python script and redirect output to the log file
@@ -39,6 +39,8 @@ for param in "${params[@]}"; do
         --num_epochs "$num_epochs" \
         --target_update_freq "$target_update_freq" \
         --loss_func "$loss_func" \
+        --end_turn_penalty "$end_turn_penalty" \
+        --tau "$tau" \
         > "$log_file" 2>&1
 
     # Check if the Python script exited successfully

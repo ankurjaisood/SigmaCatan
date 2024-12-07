@@ -37,12 +37,14 @@ class GameIterator:
                  static_board: bool,
                  disable_dynamic_board_state: bool,
                  reorder_player_states: bool,
-                 reward_func_str: str) -> None:
+                 reward_func_str: str,
+                 end_turn_penalty: float) -> None:
         self.static_board = static_board
         self.disable_dynamic_board_state = disable_dynamic_board_state
         self.reorder_player_states = reorder_player_states        
         self.reward_func_str = reward_func_str
-        print(f"Using reward function: {self.reward_func_str}")
+        self.end_turn_penalty = end_turn_penalty
+        print(f"Using reward function: {self.reward_func_str}, End Turn Penalty: {self.end_turn_penalty}")
 
         self.parser = CatanatronParser()
         self.games_paths = self.process_directory_iterator(dir_path)
@@ -122,7 +124,7 @@ class GameIterator:
             elif self.reward_func_str == "BASIC":
                 reward_function = BasicRewardFunction(game.winner)
             elif self.reward_func_str == "END_TURN_PENALTY":
-                reward_function = EndTurnPenaltyRewardFunction(game.winner)
+                reward_function = EndTurnPenaltyRewardFunction(game.winner, w_endTurnPenalty=self.end_turn_penalty)
             else:
                 raise ValueError(f"Invalid reward function: {self.reward_func_str}")
 
@@ -177,6 +179,15 @@ def float_between_0_and_1(value):
         raise argparse.ArgumentTypeError(f"Value must be between 0 and 1, got {value}")
     return f
 
+def positive_float(value):
+    try:
+        ivalue = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid float value: {value}")
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"Value must be a positive float, got {value}")
+    return ivalue
+
 def positive_int(value):
     try:
         ivalue = int(value)
@@ -204,6 +215,8 @@ def main():
     parser.add_argument("--num_epochs", type=positive_int, required=True, help="Number of epochs to run (positive int)")
     parser.add_argument("--target_update_freq", type=positive_int, required=True, help="Number of steps after which to update target model (positive int)")
     parser.add_argument("--loss_func", type=str, required=True, help="Loss function to use. Options: mse, huber")
+    parser.add_argument("--end_turn_penalty", type=positive_float, required=True, help="Reward function penalty for ending turn. Positive float value.")
+    parser.add_argument("--tau", type=float_between_0_and_1, required=True, help="Tau value for updating target model. Between 0 and 1.")
 
     args = parser.parse_args()
 
@@ -225,7 +238,8 @@ def main():
             args.gamma,
             args.num_epochs,
             args.target_update_freq,
-            args.loss_func
+            args.loss_func,
+            args.tau
         )
         
         game_iterator = GameIterator(
@@ -234,6 +248,7 @@ def main():
             args.disable_dynamic_board_state, 
             args.reorder_players,
             args.reward_func,
+            args.end_turn_penalty
         )
         
         start_time = time.time()
