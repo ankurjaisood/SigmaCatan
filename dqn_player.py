@@ -39,6 +39,7 @@ MODEL_PATH = "./models/static_board/model-20241205_234834-590x13-hidden_301-gamm
 
 MASK_INVALID_ACTIONS = True
 DISALLOW_MODEL_END_TURN = True
+DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = False
 PRINT_CHOSEN_ACTIONS = False
 
 @register_player("DQN")
@@ -57,7 +58,7 @@ class DQNPlayer(Player):
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"PYTORCH USING DEVICE {self.device}")
-        print(f"Masking Invalid Actions: {MASK_INVALID_ACTIONS}, Disalllow Agent to END_TURN: {DISALLOW_MODEL_END_TURN}")
+        print(f"Masking Invalid Actions: {MASK_INVALID_ACTIONS}, Disalllow Agent to END_TURN: {DISALLOW_MODEL_END_TURN}, Disallow END_TURN and select next best: {DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT}")
 
         self.model_path = MODEL_PATH
         self.model = self._load_model(self.model_path)
@@ -145,6 +146,10 @@ class DQNPlayer(Player):
             for idx in valid_action_indices:
                 valid_actions_mask[idx] = True
 
+            # TODO(jaisood): REMOVE EVEN MORE EXTREME HACK TO FORBID AGENT FROM ENDING TURN
+            if DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT:
+                valid_actions_mask[ActionType.END_TURN.value-1] = False
+
             # Mask out invalid actions by setting them to -inf
             masked_q_values = output_tensor.clone()
             masked_q_values[~valid_actions_mask] = float('-inf')
@@ -160,12 +165,12 @@ class DQNPlayer(Player):
 
             selected_allowable_actions = [(idx, action) for idx, action in enumerate(allowable_action_list) if action == best_action]
             if VERBOSE_LOGGING: print(selected_allowable_actions)
-            selected_action = random.choice(selected_allowable_actions)
 
             # TODO(jaisood): REMOVE HACK FORBID AGENT FROM ENDING TURN
             if best_action == ActionType.END_TURN and DISALLOW_MODEL_END_TURN:
                 action_chosen = None
-            else:
+            elif len(selected_allowable_actions) > 0:
+                selected_action = random.choice(selected_allowable_actions)
                 action_chosen = playable_actions[selected_action[0]]
                 if PRINT_CHOSEN_ACTIONS: print(f"ACTION CHOSEN (Masked Model): {action_chosen} out of {len(selected_allowable_actions)}")
         else:
