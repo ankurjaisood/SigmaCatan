@@ -11,7 +11,10 @@ from datetime import datetime
 VERBOSE_LOGGING = False
 
 class DQN(nn.Module):
-    def __init__(self, input_tensor_size: int, output_action_space_size: int, hidden_layer_size: int = 512):
+    def __init__(self, 
+                 input_tensor_size: int, 
+                 output_action_space_size: int,
+                 hidden_layer_size: int = 512):
         super(DQN, self).__init__()
         # self.layer1 = nn.Linear(input_tensor_size, hidden_layer_size)
         # self.layer2 = nn.Linear(hidden_layer_size, hidden_layer_size)
@@ -64,15 +67,14 @@ class DQNTrainer:
                  reward_function_str: str,
                  input_size: int,
                  output_size: int,
-                 gamma=0.90,
+                 gamma: float,
+                 num_epochs: int,
+                 target_update_freq: int,
+                 lossname: str,
                  learning_rate=1e-4,
                  batch_size=512,
                  buffer_size=100000,
-                 target_update_freq=10000,
-                 num_epochs=5,
-                 max_steps_per_episode=200,
-                 tau=0.001,
-                 lossname="huber"):
+                 tau=0.001):
 
         # Device
         torch.cuda.empty_cache()
@@ -93,7 +95,6 @@ class DQNTrainer:
         self.buffer_size = buffer_size
         self.target_update_freq = target_update_freq
         self.num_epochs = num_epochs
-        self.max_steps_per_episode = max_steps_per_episode
         self.tau = tau
         self.lossname = lossname
         self.model_save_path = f"./model-{self.time}-{input_size}x{output_size}-hidden_{self.hidden_size}-gamma_{gamma}-lr_{learning_rate}-bs_{batch_size}-epochs_{num_epochs}-updatefreq_{target_update_freq}-loss_{lossname}-tau_{tau}-rewardfunc_{reward_function_str}.pth"

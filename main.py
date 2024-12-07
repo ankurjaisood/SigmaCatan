@@ -42,6 +42,7 @@ class GameIterator:
         self.disable_dynamic_board_state = disable_dynamic_board_state
         self.reorder_player_states = reorder_player_states        
         self.reward_func_str = reward_func_str
+        print(f"Using reward function: {self.reward_func_str}")
 
         self.parser = CatanatronParser()
         self.games_paths = self.process_directory_iterator(dir_path)
@@ -165,14 +166,42 @@ class GameIterator:
     def __iter__(self):
         return self.iterate_game()
 
+def float_between_0_and_1(value):
+    try:
+        f = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid float value: {value}")
+    if f < 0.0 or f > 1.0:
+        raise argparse.ArgumentTypeError(f"Value must be between 0 and 1, got {value}")
+    return f
+
+def positive_int(value):
+    try:
+        ivalue = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid integer value: {value}")
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"Value must be a positive integer, got {value}")
+    return ivalue
+
 def main():
 
     parser = argparse.ArgumentParser(description="Parse Catan board.json and data.json files in subdirectories within a dataset.")
+    
+    # Unnamed required parameters
     parser.add_argument("dataset_dir", type=str, help="Path to the base directory containing training dataset.")
+    
+    # Named optional parameters
     parser.add_argument("--static_board", action="store_true", help="Whether to expect a static board for all the games.")
     parser.add_argument("--disable_dynamic_board_state", action="store_true", help="Whether to include the dynamic board state.")
     parser.add_argument("--reorder_players", action="store_true", help="Whether to reorder players such that the winner is always index 0 in the players array.")
+    
+    # Named required parameters
     parser.add_argument("--reward_func", type=str, required=True, help="Reward function to use. Options: VP, BASIC")
+    parser.add_argument("--gamma", type=float_between_0_and_1, required=True, help="Gamma discount factor")
+    parser.add_argument("--num_epochs", type=positive_int, required=True, help="Number of epochs to run (positive int)")
+    parser.add_argument("--target_update_freq", type=positive_int, required=True, help="Number of steps after which to update target model (positive int)")
+    parser.add_argument("--loss_func", type=str, required=True, help="Loss function to use. Options: mse, huber")
 
     args = parser.parse_args()
 
@@ -187,13 +216,22 @@ def main():
             input_tensor_expected_length -= FLATTENED_DYNAMIC_BOARD_STATE_LENGTH
 
         output_tensor_expected_length = OUTPUT_TENSOR_EXPECTED_LENGTH
-        dqn_trainer = DQNTrainer(input_tensor_expected_length, output_tensor_expected_length)
-        game_iterator = GameIterator(
+        dqn_trainer = DQNTrainer(
             args.reward_func,
+            input_tensor_expected_length, 
+            output_tensor_expected_length,
+            args.gamma,
+            args.num_epochs,
+            args.target_update_freq,
+            args.loss_func
+        )
+        
+        game_iterator = GameIterator(
             args.dataset_dir, 
             args.static_board, 
             args.disable_dynamic_board_state, 
-            args.reorder_players
+            args.reorder_players,
+            args.reward_func,
         )
         
         start_time = time.time()
