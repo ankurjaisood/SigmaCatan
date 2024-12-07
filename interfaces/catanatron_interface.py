@@ -55,8 +55,14 @@ class CatanatronParser:
 
             elif action_type == ActionType.PLAY_YEAR_OF_PLENTY:
                 # PLAY_YEAR_OF_PLENTY params: {"resource_1": int, "resource_2": int}
-                parameters.extend([ResourceType.string_to_enum(params[0]).value,
-                                   ResourceType.string_to_enum(params[1]).value])
+                if(len(params) == 2):
+                    parameters.extend([ResourceType.string_to_enum(params[0]).value,
+                                       ResourceType.string_to_enum(params[1]).value])
+                else:
+                    #TODO(jaisood): Hacky fallback for if there are ever only one value provided for year of plenty
+                    print("PLAY_YEAR_OF_PLENTY only one card provided, expected 2")
+                    parameters.extend([ResourceType.string_to_enum(params[0]).value,
+                                       ResourceType.string_to_enum(params[0]).value])
 
             elif action_type == ActionType.PLAY_MONOPOLY:
                 # PLAY_MONOPOLY params: {"resource": int}
