@@ -35,12 +35,49 @@ from pprint import pprint
 
 VERBOSE_LOGGING = False
 ENABLE_RUNTIME_TENSOR_SIZE_CHECKS = True
-MODEL_PATH = "./models/static_board/model-20241205_234834-590x13-hidden_301-gamma_0.9-lr_0.0001-bs_512-epochs_50-updatefreq_10000-loss_huber-tau_0.001.pth"
+MODEL_PATH = "./models/static_board/model-20241207_131822-590x13-hidden_301-gamma_0.9-lr_0.0001-bs_512-epochs_20-updatefreq_5000-loss_huber-tau_0.05-rewardfunc_END_TURN_PENALTY.pth"
 
-MASK_INVALID_ACTIONS = True
-DISALLOW_MODEL_END_TURN = True
-DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = True
+ENABLE_MULTI_ITER_CACHE = False
+MASK_INVALID_ACTIONS = False
+DISALLOW_MODEL_END_TURN = False
+DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = False
 PRINT_CHOSEN_ACTIONS = False
+
+# Enables running multiple iterations of the same player with different configurations
+if ENABLE_MULTI_ITER_CACHE:
+    with open("iter.txt", "r") as f:
+        iter = int(f.read())
+
+    print(f"Current iter: {iter}")
+    if iter == 0:
+        print("Running iter 0 with no masking of invalid actions, no disallowing of END_TURN, and no disallowing of END_TURN and selecting next best action")
+        MASK_INVALID_ACTIONS = False
+        DISALLOW_MODEL_END_TURN = False
+        DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = False
+    elif iter == 1:
+        print("Running iter 1 with masking of invalid actions, no disallowing of END_TURN, and no disallowing of END_TURN and selecting next best action")
+        MASK_INVALID_ACTIONS = True
+        DISALLOW_MODEL_END_TURN = False
+        DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = False
+    elif iter == 2:
+        print("Running iter 2 with masking of invalid actions, disallowing END_TURN, and no disallowing of END_TURN and selecting next best action")
+        MASK_INVALID_ACTIONS = True
+        DISALLOW_MODEL_END_TURN = True
+        DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = False
+    elif iter == 3:
+        print("Running iter 3 with masking of invalid actions, disallowing END_TURN, and disallowing END_TURN and selecting next best action")
+        MASK_INVALID_ACTIONS = True
+        DISALLOW_MODEL_END_TURN = True
+        DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = True
+
+    iter += 1
+    if iter >= 3:
+        print("Resetting iter back to 0")
+        iter = 0
+    print(f"Setting next iter to {iter}")
+    with open("iter.txt", "w") as f:
+        f.write(str(iter))
+    
 
 @register_player("DQN")
 class DQNPlayer(Player):
