@@ -45,6 +45,12 @@ PRINT_CHOSEN_ACTIONS = False
 
 # Enables running multiple iterations of the same player with different configurations
 if ENABLE_MULTI_ITER_CACHE:
+    # Create file iter.txt with 0 as the first line if it does not exist
+    if not os.path.exists("iter.txt"):
+        with open("iter.txt", "w") as f:
+            f.write("0")
+
+    # Read the current iter from file
     with open("iter.txt", "r") as f:
         iter = int(f.read())
 
@@ -71,7 +77,7 @@ if ENABLE_MULTI_ITER_CACHE:
         DISALLOW_MODEL_END_TURN_AND_SELECT_NEXT = True
 
     iter += 1
-    if iter >= 3:
+    if iter > 3:
         print("Resetting iter back to 0")
         iter = 0
     print(f"Setting next iter to {iter}")
