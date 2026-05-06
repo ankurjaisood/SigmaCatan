@@ -7,6 +7,9 @@ AA228/CS238 Final Project (Autumn 2024)
 The goal is to improve upon simple random agents by navigating the large state-action space of Catan and learning strategic decision-making through reinforcement learning. 
 This project uses a forked version of the Catanatron environment to generate training data and evaluate the agent’s performance.
 
+## Report Link
+https://drive.google.com/file/d/1CdxMFLdCIZrIL4xqppJCX6v679ycAd3b/view
+
 ## Features
 
 - **DQN-based Training**: Implements a Deep Q-Learning pipeline with a neural network architecture and experience replay.
